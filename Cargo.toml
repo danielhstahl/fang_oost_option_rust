@@ -1,0 +1,21 @@
+[package]
+name = "fang_oost_option"
+version = "0.1.0"
+authors = ["Daniel Stahl <danstahl1138@gmail.com>"]
+homepage = "https://github.com/phillyfan1138/fang_oost_option_rust"
+repository = "https://github.com/phillyfan1138/fang_oost_option_rust"
+readme = "README.md"
+license = "MIT"
+description = "A library implementing Fang and Oosterlee's algorithm for option pricing."
+
+[dependencies]
+num = "0.2"
+black_scholes = "0.1.2"
+approx = "0.2.0"
+rayon = "1.0.1"
+num-complex = "0.2"
+statrs = "0.7.0"
+fang_oost = "0.1.0"
+
+[badges]
+travis-ci = { repository = "phillyfan1138/fang_oost_option_rust" }

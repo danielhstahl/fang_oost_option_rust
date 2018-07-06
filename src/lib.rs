@@ -65,7 +65,7 @@ fn option_price_transform(cf:&Complex<f64>)->Complex<f64>{
     @returns vector of prices corresponding with the strikes 
     provided by FangOostCall or FangOostPut
 */
-
+/**TODO!  Need to figure out how to add m_output to result.  Maybe in the fang_oost library have a return iterator instead of vector */
 fn fang_oost_generic<T, U, S>(
     num_u:usize, 
     x_values:&Vec<f64>,

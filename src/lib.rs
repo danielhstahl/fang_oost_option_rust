@@ -65,16 +65,15 @@ fn option_price_transform(cf:&Complex<f64>)->Complex<f64>{
     @returns vector of prices corresponding with the strikes 
     provided by FangOostCall or FangOostPut
 */
-/**TODO!  Need to figure out how to add m_output to result.  Maybe in the fang_oost library have a return iterator instead of vector */
 fn fang_oost_generic<T, U, S>(
     num_u:usize, 
-    x_values:&Vec<f64>,
+    x_values:&'static Vec<f64>,
     enh_cf:T,
     m_output:U,
     cf:S
 )->Vec<f64>
     where T: Fn(&Complex<f64>, &Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send,
-    U: Fn(f64, f64, usize)->f64+std::marker::Sync+std::marker::Send,
+    U: Fn(f64, usize)->f64+std::marker::Sync+std::marker::Send,
     S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send
 {
     let x_max=*x_values.last().unwrap();
@@ -86,14 +85,16 @@ fn fang_oost_generic<T, U, S>(
             let cfu=cf(u);
             enh_cf(&cfu, u)
         },
-        |u, x, k|phi_k(x_min, x_max, x_min, 0.0, u, k)-chi_k(x_min, x_max, x_min, 0.0, u)
-    )
+        move |u, _, k|phi_k(x_min, x_max, x_min, 0.0, u, k)-chi_k(x_min, x_max, x_min, 0.0, u)
+    ).enumerate().map(|(index, result)|{
+        m_output(result, index)
+    }).collect()
 }
 
 pub fn fang_oost_call_price<S>(
     num_u:usize,
     asset:f64,
-    strikes:&Vec<f64>,
+    strikes:&'static Vec<f64>,
     rate:f64,
     t_maturity:f64,
     cf:S
@@ -101,12 +102,13 @@ pub fn fang_oost_call_price<S>(
     where S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send
 {
     let discount=(-rate*t_maturity).exp();
-    let t_strikes=get_x_from_k(asset, strikes);
+    let t_strikes:Vec<f64>=get_x_from_k(asset, &strikes);
+    //let t_strikes_ref:&'static Vec<f64>=&t_strikes;
     fang_oost_generic(
         num_u, 
         &t_strikes, 
-        |cfu, u|option_price_transform(&cfu), 
-        |val, x, index|(val-1.0)*discount*strikes[index]+asset,
+        |cfu, _|option_price_transform(&cfu), 
+        |val, index|(val-1.0)*discount*strikes[index]+asset,
         cf
     )
 }

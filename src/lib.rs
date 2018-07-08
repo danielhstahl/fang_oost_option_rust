@@ -10,31 +10,26 @@ extern crate approx;
 extern crate statrs;
 
 use num_complex::Complex;
-use num::traits::{Zero};
-use std::f64::consts::PI;
 use rayon::prelude::*;
 
-
-
-
 /**For Fang Oost (defined in the paper)*/
-fn chi_k(a:f64, b:f64, c:f64, d:f64, u:f64)->f64{
+fn chi_k(a:f64, c:f64, d:f64, u:f64)->f64{
     let iter_s=|x|u*(x-a);
     let exp_d=d.exp();
     let exp_c=c.exp();
     (iter_s(d).cos()*exp_d-iter_s(c).cos()*exp_c+u*iter_s(d).sin()*exp_d-u*iter_s(c).sin()*exp_c)/(1.0+u*u)
 }
 
-fn phi_k(a:f64, b:f64, c:f64, d:f64, u:f64, k:usize)->f64{
+fn phi_k(a:f64, c:f64, d:f64, u:f64, k:usize)->f64{
     let iter_s=|x|u*(x-a);
-    if(k==0){d-c} else{(iter_s(d).sin()-iter_s(c).sin())/u}
+    if k==0 {d-c} else{(iter_s(d).sin()-iter_s(c).sin())/u}
 }
 
 /**This function takes strikes and converts them
 into a vector in the x domain.  Intriguinely, I 
 don't have to sort the result...*/
 fn get_x_from_k(asset:f64, strikes:&Vec<f64>)->Vec<f64>{
-    strikes.iter().map(|v|(asset/v).ln()).collect()
+    strikes.iter().map(|strike|(asset/strike).ln()).collect()
 }
 
 fn option_price_transform(cf:&Complex<f64>)->Complex<f64>{
@@ -56,45 +51,43 @@ fn option_price_transform(cf:&Complex<f64>)->Complex<f64>{
     they are sorted largest to smallest.
     returns in log domain
     http://ta.twi.tudelft.nl/mf/users/oosterle/oosterlee/COS.pdf
-    @xValues x values derived from strikes
-    @numUSteps number of steps in the complex domain (independent 
+    @num_u number of steps in the complex domain (independent 
     of number of x steps)
-    @mOutput a function which determines whether the output is a 
+    @x_values x values derived from strikes
+    @enh_cf function of Fn CF and complex U which transforms 
+    the CF into the appropriate derivative (eg, for delta or gamma)
+    @m_output a function which determines whether the output is a 
     call or a put.  
-    @CF characteristic function of log x around the strike
+    @cf characteristic function of log x around the strike
     @returns vector of prices corresponding with the strikes 
     provided by FangOostCall or FangOostPut
 */
-fn fang_oost_generic<T, U, S>(
+fn fang_oost_generic<'a, T, U, S>(
     num_u:usize, 
-    x_values:&'static Vec<f64>,
+    x_values:&'a Vec<f64>,
     enh_cf:T,
     m_output:U,
     cf:S
 )->Vec<f64>
-    where T: Fn(&Complex<f64>, &Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send,
-    U: Fn(f64, usize)->f64+std::marker::Sync+std::marker::Send,
-    S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send
+    where T: Fn(&Complex<f64>, &Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send+'a,
+    U: Fn(f64, usize)->f64+std::marker::Sync+std::marker::Send+'a,
+    S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send+'a
 {
-    let x_max=*x_values.last().unwrap();
     let x_min=*x_values.first().unwrap();
     fang_oost::get_expectation_discrete_extended(
         num_u,
-        x_values, 
-        |u|{
-            let cfu=cf(u);
-            enh_cf(&cfu, u)
-        },
-        move |u, _, k|phi_k(x_min, x_max, x_min, 0.0, u, k)-chi_k(x_min, x_max, x_min, 0.0, u)
+        &x_values, 
+        |u| enh_cf(&cf(u), u),
+        move |u, _, k|phi_k(x_min, x_min, 0.0, u, k)-chi_k(x_min, x_min, 0.0, u)
     ).enumerate().map(|(index, result)|{
         m_output(result, index)
     }).collect()
 }
 
-pub fn fang_oost_call_price<S>(
+pub fn fang_oost_call_price<'a, S>(
     num_u:usize,
     asset:f64,
-    strikes:&'static Vec<f64>,
+    strikes:&'a Vec<f64>,
     rate:f64,
     t_maturity:f64,
     cf:S
@@ -103,7 +96,6 @@ pub fn fang_oost_call_price<S>(
 {
     let discount=(-rate*t_maturity).exp();
     let t_strikes:Vec<f64>=get_x_from_k(asset, &strikes);
-    //let t_strikes_ref:&'static Vec<f64>=&t_strikes;
     fang_oost_generic(
         num_u, 
         &t_strikes, 
@@ -124,7 +116,8 @@ mod tests {
         asset:f64,
         index:usize
     )->f64{
-        asset*(-x_min+dk*(index as f64)).exp()
+        //negative because x=log(s/k) -> k=s*exp(-x)
+        asset*(-x_min-dk*(index as f64)).exp()
     }
    
     fn get_fang_oost_strike(

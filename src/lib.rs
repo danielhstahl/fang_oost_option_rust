@@ -8,6 +8,8 @@ extern crate fang_oost;
 extern crate approx;
 #[cfg(test)]
 extern crate statrs;
+#[cfg(test)]
+extern crate special;
 
 use num_complex::Complex;
 use rayon::prelude::*;
@@ -34,6 +36,18 @@ fn get_x_from_k(asset:f64, strikes:&Vec<f64>)->Vec<f64>{
 
 fn option_price_transform(cf:&Complex<f64>)->Complex<f64>{
     *cf
+}
+
+fn option_delta_transform(cf:&Complex<f64>, u:&Complex<f64>)->Complex<f64>{
+    cf*u
+}
+
+fn option_gamma_transform(cf:&Complex<f64>, u:&Complex<f64>)->Complex<f64>{
+    -cf*u*(1.0-u)
+}
+
+fn option_theta_transform(cf:&Complex<f64>, u:&Complex<f64>, rate:f64)->Complex<f64>{
+    if cf.re>0.0 { -(cf.ln()-rate)*cf} else {Complex::new(0.0, 0.0)}
 }
 
 
@@ -106,10 +120,150 @@ pub fn fang_oost_call_price<'a, S>(
 }
 
 
+pub fn fang_oost_put_price<'a, S>(
+    num_u:usize,
+    asset:f64,
+    strikes:&'a Vec<f64>,
+    rate:f64,
+    t_maturity:f64,
+    cf:S
+)->Vec<f64>
+    where S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send
+{
+    let discount=(-rate*t_maturity).exp();
+    let t_strikes:Vec<f64>=get_x_from_k(asset, &strikes);
+    fang_oost_generic(
+        num_u, 
+        &t_strikes, 
+        |cfu, _|option_price_transform(&cfu), 
+        |val, index|val*discount*strikes[index],
+        cf
+    )
+}
+
+pub fn fang_oost_call_delta<'a, S>(
+    num_u:usize,
+    asset:f64,
+    strikes:&'a Vec<f64>,
+    rate:f64,
+    t_maturity:f64,
+    cf:S
+)->Vec<f64>
+    where S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send
+{
+    let discount=(-rate*t_maturity).exp();
+    let t_strikes:Vec<f64>=get_x_from_k(asset, &strikes);
+    fang_oost_generic(
+        num_u, 
+        &t_strikes, 
+        |cfu, u|option_delta_transform(&cfu, &u), 
+        |val, index|val*discount*strikes[index]/asset+1.0,
+        cf
+    )
+}
+
+pub fn fang_oost_put_delta<'a, S>(
+    num_u:usize,
+    asset:f64,
+    strikes:&'a Vec<f64>,
+    rate:f64,
+    t_maturity:f64,
+    cf:S
+)->Vec<f64>
+    where S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send
+{
+    let discount=(-rate*t_maturity).exp();
+    let t_strikes:Vec<f64>=get_x_from_k(asset, &strikes);
+    fang_oost_generic(
+        num_u, 
+        &t_strikes, 
+        |cfu, u|option_delta_transform(&cfu, &u), 
+        |val, index|val*discount*strikes[index]/asset,
+        cf
+    )
+}
+
+pub fn fang_oost_call_theta<'a, S>(
+    num_u:usize,
+    asset:f64,
+    strikes:&'a Vec<f64>,
+    rate:f64,
+    t_maturity:f64,
+    cf:S
+)->Vec<f64>
+    where S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send
+{
+    let discount=(-rate*t_maturity).exp();
+    let t_strikes:Vec<f64>=get_x_from_k(asset, &strikes);
+    fang_oost_generic(
+        num_u, 
+        &t_strikes, 
+        |cfu, u|option_theta_transform(&cfu, &u, rate), 
+        |val, index|(val-rate)*discount*strikes[index],
+        cf
+    )
+}
+///is this right???
+pub fn fang_oost_put_theta<'a, S>(
+    num_u:usize,
+    asset:f64,
+    strikes:&'a Vec<f64>,
+    rate:f64,
+    t_maturity:f64,
+    cf:S
+)->Vec<f64>
+    where S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send
+{
+    let discount=(-rate*t_maturity).exp();
+    let t_strikes:Vec<f64>=get_x_from_k(asset, &strikes);
+    fang_oost_generic(
+        num_u, 
+        &t_strikes, 
+        |cfu, u|option_theta_transform(&cfu, &u, rate), 
+        |val, index|(val-rate)*discount*strikes[index], //val*discount
+        cf
+    )
+}
+
+pub fn fang_oost_call_gamma<'a, S>(
+    num_u:usize,
+    asset:f64,
+    strikes:&'a Vec<f64>,
+    rate:f64,
+    t_maturity:f64,
+    cf:S
+)->Vec<f64>
+    where S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send
+{
+    let discount=(-rate*t_maturity).exp();
+    let t_strikes:Vec<f64>=get_x_from_k(asset, &strikes);
+    fang_oost_generic(
+        num_u, 
+        &t_strikes, 
+        |cfu, u|option_theta_transform(&cfu, &u, rate), 
+        |val, index|val*discount*strikes[index]/(asset*asset),
+        cf
+    )
+}
+pub fn fang_oost_put_gamma<'a, S>(
+    num_u:usize,
+    asset:f64,
+    strikes:&'a Vec<f64>,
+    rate:f64,
+    t_maturity:f64,
+    cf:S
+)->Vec<f64>
+    where S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send
+{
+    fang_oost_call_gamma(num_u, asset, &strikes, rate, t_maturity, cf)
+}
+
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::f64::consts::SQRT_2;
+    use special::Error;
     fn get_fang_oost_k_at_index(
         x_min:f64,
         dk:f64,
@@ -131,10 +285,16 @@ mod tests {
             get_fang_oost_k_at_index(x_min, dx, asset, index)
         }).collect()
     }
+
+    fn bs_call_delta(asset:f64, strike:f64, maturity:f64, sigma:f64, rate:f64)->f64{
+        let discount=(-rate*maturity).exp();
+        let d1=(asset/(discount*strike)).ln()/(sigma*maturity.sqrt())+sigma*0.5*maturity.sqrt();
+        (d1/SQRT_2).erf()*0.5+0.5
+    }
     
 
     #[test]
-    fn test_fang_oost_call(){
+    fn test_fang_oost_call_price(){
         let r=0.05;
         let sig=0.3;
         let t=1.0;
@@ -151,6 +311,29 @@ mod tests {
         for i in min_n..max_n{
             assert_abs_diff_eq!(
                 black_scholes::call(asset, k_array[i], discount, sig),
+                my_option_price[i],
+                epsilon=0.001
+            );
+        }
+    }
+    #[test]
+    fn test_fang_oost_call_delta(){
+        let r=0.05;
+        let sig=0.3;
+        let t=1.0;
+        let asset=50.0;
+        let bs_cf=|u:&Complex<f64>| ((r-sig*sig*0.5)*t*u+sig*sig*t*u*u*0.5).exp();
+        let x_max=5.0;
+        let num_x=(2 as usize).pow(10);
+        let num_u=64;
+        let k_array=get_fang_oost_strike(-x_max, x_max, asset, num_x);
+        let my_option_price=fang_oost_call_delta(num_u, asset, &k_array, r, t, bs_cf);
+        let min_n=num_x/4;
+        let max_n=num_x-num_x/4;
+        let discount=(-r*t).exp();
+        for i in min_n..max_n{
+            assert_abs_diff_eq!(
+                bs_call_delta(asset, k_array[i], t, sig, r),
                 my_option_price[i],
                 epsilon=0.001
             );

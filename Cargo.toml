@@ -16,6 +16,7 @@ rayon = "1.0.1"
 num-complex = "0.2"
 statrs = "0.7.0"
 fang_oost = "0.4.0"
+special = "0.7"
 
 [badges]
 travis-ci = { repository = "phillyfan1138/fang_oost_option_rust" }

@@ -1,29 +1,23 @@
 language: rust
-
 sudo: required
-
 rust:
-  - stable
-  - beta
-  - nightly
-
+- stable
+- beta
+- nightly
 matrix:
   allow_failures:
-    - rust: nightly
-env:
-  - secure: smQ1nBQ8pM12u6LWc+elM5bSyj4Hgd61h3HcStqtLF88KZBbGlqgZCxewfrWQg7eAk1SPTtiaqc6c6XpZEEWMTYqfa2tkBChnlnatJTwWCGaPjrpBxRyvDhQp/xzTbWfbCNMYtSrA6DnTu2TssBh7HGTt9nffFRRqlX4aBbDePWWxK/1V99fHNYN6kz1g2N/GVxawQ0naUDyzG3bIvQqi1S+ERHNS3gkJo4g7zaeJOhPOQeCfztrqWKC9Bmh8uzOQjumlPj5t0WIrFYYkQpHNZ+uy/uwuZbSopAehIjShrhT9zoFCJQTW4dSKVbJQleKc6QKhw03FNzUHQOLH5ztULttKrcXmVm0e/CetMruhkLwMaVZVoWu/UR2t+Om4LfGWMFnNtf98LkUTkFewzQ9EsU7mqEK9AoNSWhMtAV8BJtFOEdczkO67FDeAFJWf/fpPBjfFjtC49L0wNIH8+9JyEv1Np7FCMV/epO4PXu5na3rUkMYZQAc4mmwptNiHupnsyW4bN5sEwb/Z/Kgy7+sRU++/dISH3v8bs6sZp2z5hJ4tgu1YFmYJTiYy//KUTfSPo3HTx6+/qKE/c/AQDsRZqcIYNP2iSOkVpmVU1VpgLMG5XuC/crMlRacw7PPautXaQf9gmcOkEhgL5Jmku/fiCKM8MiNBKkpOWTtq4P8Cbc=
+  - rust: nightly
 addons:
   apt:
     packages:
-      - libcurl4-openssl-dev
-      - libelf-dev
-      - libdw-dev
-      - cmake
-      - gcc
-      - binutils-dev
-      - libiberty-dev
-
-after_success: |
+    - libcurl4-openssl-dev
+    - libelf-dev
+    - libdw-dev
+    - cmake
+    - gcc
+    - binutils-dev
+    - libiberty-dev
+after_success: |-
   wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz &&
   tar xzf master.tar.gz &&
   cd kcov-master &&
@@ -39,3 +33,6 @@ after_success: |
   echo "Uploaded code coverage"
   cargo doc
   cargo publish --token "$CARGO_API" --allow-dirty
+env:
+  matrix:
+    secure: hDnDWy+CMXxskWb2i75dA1Ud+ZTateyQUO1TiCsPW9vsahHh34mhzhlTbCBQP8pmMQNtnioF4pQmuzGCSjCR5I1b9UzZnpnQkb0LBEbu7cueNPqLr7gkr9nGSUr+4l0WGBYgOWtelckyui12AdqrhzxwMzFDUnV8b7rZO/AQwZcaQjlOx21diOtkgIykw7sKa1BsC9wSy7Zeu/Ap/5B6R1bLx0UKb0dz1Pa4woEOEwlB35RFJ3mab0uLkdxxGVrH5MqlbUKVmExAxhNAdSPB6JnlJOkSkIfcYJfvtKyT4V5LTjiQzVTay6ypV/fxB1WVPvOb/YzPTnHJCYTkQi9FdxYpLMKtHnxaZQ5vuUNHzLRMDSWolj0vVWMxtJy2DY12wYCgcwSsi+6JeynQAjZCQ2/nq6P+c74ASbIrLf59HdnOOmbZpL1x8JIEJ9ARhMZCRggrnXfQ8H5YXZRXERCZxUso2f5b8zAplsm+lVSW9f2H0aV9BzsdlbE3vuPHLV//Kf068gWZl/pB5oGvFS1kqLbqngFGQp3kb4wgrMm3FYq4Hr/EDKP6TXfT00uxwfFaz7rEFti1SSO+HKt4UIMOqBWnT1ArOuQEAw9KJDVRut3WnB+XhIOYA9apI+GNQHab7XlqVHKardIgWuZwryF9sVgO/B7OHBRfSF/U5uOvu2g=

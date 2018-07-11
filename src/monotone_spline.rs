@@ -1,26 +1,76 @@
 extern crate num;
 
+struct Point(f64, f64);
+
 pub fn spline(
-    xs:&Vec<f64>,
-    ys:&Vec<f64>
+    x_and_y:&Vec<Point>
 )->Fn(f64)->f64 
 {
-    let dxs_iter=xs.windows(2).map(|w| w[1] - w[0]);
-    let ms=ys.windows(2).map(|w| w[1] - w[0]).zip(dxs).map(|(dy, dx)|dy/dx).collect();
-    let dxs=dxs_iter.collect();
-    let dxs_diff_iter=dxs.windows(2);
-    let cls=ms.iter().nth(0).chain(ms.windows(2).zip(dxs_diff_iter).map(|(ms_diff, dxs_diff)|{
-        let dx=dxs_diff[0];
-        let dx_next=dxs_diff[1];
-        let common=dx+dx_next;
-        let m=ms_diff[0];
-        let m_next=ms_diff[1];
-        if m*m_next <=0 {0.0} else {3.0*common / ((common+dx_next)/m+(common+dx)/m_next)}
-    })).chain(ms.iter().last()).collect();
+
+    let x_and_y_diff=x_and_y.windows(2).map(|point_and_next|{
+        let (x_curr, y_curr)=point_and_next[0];
+        let (x_next, y_next)=point_and_next[1];
+
+        let x_diff=x_next-x_curr;
+        let y_diff=y_next-y_curr;
+
+        (x_diff, y_diff/x_diff)
+
+    }).collect();
+
+    let c1s=x_and_y_diff.iter().take(1)
+        .chain(
+            x_and_y_diff.windows(2).map(|diff_point_and_next|{
+                let (x_curr, dy_dx_curr)=diff_point_and_next[0];
+                let (x_next, dy_dx_next)=diff_point_and_next[1];
+
+                let common=x_curr+x_next;
+                let c1s_val=if dy_dx_next*dy_dx_curr<=0 {
+                    0.0
+                } 
+                else {
+                    3.0*common/((common+x_next)/dy_dx_curr+(common+x_curr)/dy_dx_next)
+                }
+
+                (c1s_val, x_curr, dy_dx_curr)
+            })
+        ).chain(
+            x_and_y_diff.iter().last()
+        ).collect();
+    let c2Andc3=c1s.window(2).map(|c1_diff|{
+        let (c1_curr, x_curr, dy_dx_curr)=c1_diff[0];
+        let (c1_next, _, _)=c1_diff[1];
+        
+        let inv_dx=1.0/dx;
+        let common=c1_curr+c1_next-2.0*dy_dx_curr;
+
+        ((dy_dx_curr-c1_curr-common)*inv_dx, common*inv_dx.powi(2))
+    }).collect();
+
+    move |x|{
+        //find x_val such that x is between x_val_prev, x_val_next
+        let (found_index, result)=x_and_y.windows(2).enumerate().find(|(index, &&w)| {
+            let (x_curr, _)=w[0];
+            let (x_next, _)=w[1];
+            x>x_curr && x<=x_next 
+        });
+        let (x_curr, y_curr)=results[0];
+        let (x_next, y_next)=results[1];
+        let diff=x-x_next;
+        let diff_sq=diff.powi(2);
+        let (c1s_elem, _, _)=c1s[found_index];
+        let (c2s_elem, c3s_elem)=c2Andc3[found_index];
+        y_next+c1s_elem*diff+c2s_elem*diff_sq+c3s_elem*diff*diff_sq        
+    }
 }
 
 
 
+#[cfg(test)]
+mod tests {
+    use monotone_spline::*;
+    
+}
 
 
 /**#ifndef __MONOTONE_SPLINE_H_INCLUDED__

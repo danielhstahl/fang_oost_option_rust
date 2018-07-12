@@ -51,7 +51,7 @@ pub fn spline<'a>(
         let (found_index, results)=x_and_y.windows(2).enumerate().find(|(_, w)| {
             let (x_curr, _)=w[0];
             let (x_next, _)=w[1];
-            x>x_curr && x<=x_next 
+            x>=x_curr && x<=x_next 
         }).unwrap();
 
         //let (x_curr, y_curr)=results[0];

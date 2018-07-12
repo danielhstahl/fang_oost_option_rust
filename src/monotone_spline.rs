@@ -80,4 +80,25 @@ mod tests {
         }
         
     }
+    fn test_returns_in_between_value(){
+        let x_y:Vec<(f64, f64)>=vec![(1.0, 2.0), (2.0, 2.5), (3.0, 3.0)];
+        let spline=spline(&x_y);
+        let test_x:Vec<f64>=vec![1.01, 1.02, 1.03, 1.4, 1.8, 1.98, 1.99, 2.01, 2.02, 2.03, 2.4, 2.8, 2.98, 2.99];
+        for x in test_x.iter(){
+            let spline_y=spline(*x);
+            let y_bounds=x_y.windows(2).find(|w|{
+                let (x_curr, y_curr)=w[0];
+                let (x_next, y_next)=w[1];
+                x_next>x && x_curr<x
+            });
+            let (_, y_curr)=y_bounds[0];
+            let (_, y_next)=y_bounds[1];
+            //tests that spline truly is monotonic
+            assert_eq!(
+                spline_y>y_curr&&spline_y<y_next,
+                true
+            );
+        }
+        
+    }
 }

@@ -72,10 +72,13 @@ mod tests {
     fn test_returns_value_at_knot(){
         let x_y:Vec<(f64, f64)>=vec![(1.0, 2.0), (2.0, 2.5), (3.0, 3.0)];
         let spline=spline(&x_y);
-        assert_abs_diff_eq!(
-            spline(2.0),
-            2.5,
-            epsilon=0.000000001
-        );
+        for (x, y) in x_y.iter(){
+            assert_abs_diff_eq!(
+                spline(x),
+                y,
+                epsilon=0.000000001
+            );
+        }
+        
     }
 }

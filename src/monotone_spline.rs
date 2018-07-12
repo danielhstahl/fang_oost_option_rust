@@ -85,11 +85,12 @@ mod tests {
         let spline=spline(&x_y);
         let test_x:Vec<f64>=vec![1.01, 1.02, 1.03, 1.4, 1.8, 1.98, 1.99, 2.01, 2.02, 2.03, 2.4, 2.8, 2.98, 2.99];
         for x in test_x.iter(){
-            let spline_y=spline(*x);
+            let x_d_ref=*x;
+            let spline_y=spline(x_d_ref);
             let y_bounds=x_y.windows(2).find(|w|{
                 let (x_curr, y_curr)=w[0];
                 let (x_next, y_next)=w[1];
-                x_next>x && x_curr<x
+                x_next>x_d_ref && x_curr<x_d_ref
             });
             let (_, y_curr)=y_bounds[0];
             let (_, y_next)=y_bounds[1];

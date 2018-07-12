@@ -91,7 +91,7 @@ mod tests {
                 let (x_curr, y_curr)=w[0];
                 let (x_next, y_next)=w[1];
                 x_next>x_d_ref && x_curr<x_d_ref
-            });
+            }).unwrap();
             let (_, y_curr)=y_bounds[0];
             let (_, y_next)=y_bounds[1];
             //tests that spline truly is monotonic

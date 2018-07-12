@@ -1,7 +1,6 @@
 extern crate num;
 #[cfg(test)]
 extern crate statrs;
-use std;
 
 pub fn spline<'a>(
     x_and_y:&'a Vec<(f64, f64)>
@@ -74,7 +73,7 @@ mod tests {
         let spline=spline(&x_y);
         for (x, y) in x_y.iter(){
             assert_abs_diff_eq!(
-                spline(x),
+                spline(*x),
                 y,
                 epsilon=0.000000001
             );

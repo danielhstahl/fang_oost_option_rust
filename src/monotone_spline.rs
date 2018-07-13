@@ -2,9 +2,9 @@ extern crate num;
 #[cfg(test)]
 extern crate statrs;
 
-pub fn spline<'a>(
-    x_and_y:&'a Vec<(f64, f64)>
-)-> impl Fn(f64) -> f64 +'a
+pub fn spline_mov(
+    x_and_y:Vec<(f64, f64)>
+)-> impl Fn(f64) -> f64
 {
 
     let x_and_y_diff:Vec<(f64, f64, f64)>=x_and_y.windows(2).map(|point_and_next|{
@@ -64,14 +64,16 @@ pub fn spline<'a>(
     }
 }
 
+
 #[cfg(test)]
 mod tests {
     use monotone_spline::*;
     #[test]
     fn test_returns_value_at_knot(){
         let x_y:Vec<(f64, f64)>=vec![(1.0, 2.0), (2.0, 2.5), (3.0, 3.0)];
-        let spline=spline(&x_y);
-        for (x, y) in x_y.iter(){
+        let spline=spline_mov(x_y);
+        let x_y_2:Vec<(f64, f64)>=vec![(1.0, 2.0), (2.0, 2.5), (3.0, 3.0)];
+        for (x, y) in x_y_2.iter(){
             assert_abs_diff_eq!(
                 spline(*x),
                 y,
@@ -82,14 +84,15 @@ mod tests {
     }
     fn test_returns_in_between_value(){
         let x_y:Vec<(f64, f64)>=vec![(1.0, 2.0), (2.0, 2.5), (3.0, 3.0)];
-        let spline=spline(&x_y);
+        let spline=spline_mov(x_y);
+        let x_y_2:Vec<(f64, f64)>=vec![(1.0, 2.0), (2.0, 2.5), (3.0, 3.0)];
         let test_x:Vec<f64>=vec![1.01, 1.02, 1.03, 1.4, 1.8, 1.98, 1.99, 2.01, 2.02, 2.03, 2.4, 2.8, 2.98, 2.99];
         for x in test_x.iter(){
             let x_d_ref=*x;
             let spline_y=spline(x_d_ref);
-            let y_bounds=x_y.windows(2).find(|w|{
-                let (x_curr, y_curr)=w[0];
-                let (x_next, y_next)=w[1];
+            let y_bounds=x_y_2.windows(2).find(|w|{
+                let (x_curr, _)=w[0];
+                let (x_next, _)=w[1];
                 x_next>x_d_ref && x_curr<x_d_ref
             }).unwrap();
             let (_, y_curr)=y_bounds[0];

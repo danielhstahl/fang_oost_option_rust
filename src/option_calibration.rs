@@ -142,13 +142,13 @@ pub fn get_obj_fn_arr<'a, T>(
     u_array:Vec<f64>,
     cf_fn:T
 )->impl Fn(&[f64])->f64
-where T:Fn(&[f64])->Box<Fn(&Complex<f64>)->Complex<f64>>
+where T:Fn(&Complex<f64>, &[f64])->Complex<f64>
 {
     move |params|{
-        let cf_inst=cf_fn(params);
+        //let cf_inst=cf_fn(params);
         let num_arr=u_array.len();
         u_array.iter().enumerate().fold(0.0, |accumulate, (index, u)|{
-            let result=cf_inst(&Complex::new(1.0, *u));
+            let result=cf_fn(&Complex::new(1.0, *u), params);
             accumulate+(phi_hat[index]-result).norm_sqr()
         })/(num_arr as f64)
     }
@@ -171,6 +171,19 @@ mod tests {
                 expected[index]
             );
         }
+    }
+    fn test_get_obj_one_parameter(){
+        let cf=|u:&Complex<f64>, sl:&[f64]|Complex::new(u.im, 0.0);
+        let arr=vec![Complex::new(3.0, 0.0), Complex::new(4.0, 0.0), Complex::new(5.0, 0.0)];
+        let u_arr=vec![6.0, 7.0, 8.0];
+        let hoc=get_obj_fn_arr(
+            arr,
+            u_arr,
+            cf
+        );
+        let expected=9.0;//3*3^2/3
+        let tmp:f64=0.0;
+        assert_eq!(hoc(&[tmp]), expected);
     }
 
 }

@@ -285,30 +285,6 @@ mod tests {
             get_fang_oost_k_at_index(x_min, dx, asset, index)
         }).collect()
     }
-    fn dnorm(x:f64)->f64{
-        (-x.powi(2)/2.0).exp()/(2.0*PI).sqrt()
-    }
-    fn pnorm(x:f64)->f64{
-        (x/SQRT_2).erf()*0.5+0.5
-    }
-    fn bs_call_delta(asset:f64, strike:f64, maturity:f64, sigma:f64, rate:f64)->f64{
-        let discount=(-rate*maturity).exp();
-        let d1=(asset/(discount*strike)).ln()/(sigma*maturity.sqrt())+sigma*0.5*maturity.sqrt();
-        pnorm(d1)
-    }
-    fn bs_gamma(asset:f64, strike:f64, maturity:f64, sigma:f64, rate:f64)->f64{
-        let discount=(-rate*maturity).exp();
-        let d1=(asset/(discount*strike)).ln()/(sigma*maturity.sqrt())+sigma*0.5*maturity.sqrt();
-        dnorm(d1)/(asset*sigma*maturity.sqrt())
-    }
-
-    fn bs_call_theta(asset:f64, strike:f64, maturity:f64, sigma:f64, rate:f64)->f64{
-        let discount=(-rate*maturity).exp();
-        let d2=(asset/(discount*strike)).ln()/(sigma*maturity.sqrt())-sigma*0.5*maturity.sqrt();
-        let d1=d2+sigma*maturity.sqrt();
-        -(asset*dnorm(d1)*sigma)/(2.0*maturity.sqrt())-rate*strike*discount*pnorm(d2)
-    }
-    
 
     #[test]
     fn test_fang_oost_call_price(){
@@ -324,10 +300,9 @@ mod tests {
         let my_option_price=fang_oost_call_price(num_u, asset, &k_array, r, t, bs_cf);
         let min_n=num_x/4;
         let max_n=num_x-num_x/4;
-        let discount=(-r*t).exp();
         for i in min_n..max_n{
             assert_abs_diff_eq!(
-                black_scholes::call(asset, k_array[i], discount, sig),
+                black_scholes::call(asset, k_array[i], r, sig, t),
                 my_option_price[i],
                 epsilon=0.001
             );
@@ -347,10 +322,9 @@ mod tests {
         let my_option_price=fang_oost_put_price(num_u, asset, &k_array, r, t, bs_cf);
         let min_n=num_x/4;
         let max_n=num_x-num_x/4;
-        let discount=(-r*t).exp();
         for i in min_n..max_n{
             assert_abs_diff_eq!(
-                black_scholes::call(asset, k_array[i], discount, sig)-asset+k_array[i]*discount,
+                black_scholes::put(asset, k_array[i], r, sig, t),
                 my_option_price[i],
                 epsilon=0.001
             );
@@ -372,7 +346,7 @@ mod tests {
         let max_n=num_x-num_x/4;
         for i in min_n..max_n{
             assert_abs_diff_eq!(
-                bs_call_delta(asset, k_array[i], t, sig, r),
+                black_scholes::call_delta(asset, k_array[i], r, sig, t),
                 my_option_price[i],
                 epsilon=0.001
             );
@@ -394,7 +368,7 @@ mod tests {
         let max_n=num_x-num_x/4;
         for i in min_n..max_n{
             assert_abs_diff_eq!(
-                bs_call_delta(asset, k_array[i], t, sig, r)-1.0,
+                black_scholes::put_delta(asset, k_array[i], r, sig, t),
                 my_option_price[i],
                 epsilon=0.001
             );
@@ -416,7 +390,7 @@ mod tests {
         let max_n=num_x-num_x/4;
         for i in min_n..max_n{
             assert_abs_diff_eq!(
-                bs_gamma(asset, k_array[i], t, sig, r),
+                black_scholes::call_gamma(asset, k_array[i], r, sig, t),
                 my_option_price[i],
                 epsilon=0.001
             );
@@ -438,7 +412,7 @@ mod tests {
         let max_n=num_x-num_x/4;
         for i in min_n..max_n{
             assert_abs_diff_eq!(
-                bs_gamma(asset, k_array[i], t, sig, r),
+                black_scholes::put_gamma(asset, k_array[i], r, sig, t),
                 my_option_price[i],
                 epsilon=0.001
             );
@@ -460,7 +434,7 @@ mod tests {
         let max_n=num_x-num_x/4;
         for i in min_n..max_n{
             assert_abs_diff_eq!(
-                bs_call_theta(asset, k_array[i], t, sig, r),
+                black_scholes::call_theta(asset, k_array[i], r, sig, t),
                 my_option_price[i],
                 epsilon=0.001
             );
@@ -483,7 +457,7 @@ mod tests {
         let discount=(-r*t).exp();
         for i in min_n..max_n{
             assert_abs_diff_eq!(
-                bs_call_theta(asset, k_array[i], t, sig, r)+r*k_array[i]*discount,
+                black_scholes::put_theta(asset, k_array[i], r, sig, t),
                 my_option_price[i],
                 epsilon=0.001
             );

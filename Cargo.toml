@@ -10,7 +10,7 @@ description = "A library implementing Fang and Oosterlee's algorithm for option 
 
 [dependencies]
 num = "0.2"
-black_scholes = "0.1.2"
+black_scholes = "0.2.3"
 approx = "0.2.0"
 rayon = "1.0.1"
 num-complex = "0.2"

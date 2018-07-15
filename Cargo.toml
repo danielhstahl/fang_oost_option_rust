@@ -15,7 +15,7 @@ approx = "0.2.0"
 rayon = "1.0.1"
 num-complex = "0.2"
 statrs = "0.7.0"
-fang_oost = "0.4.0"
+fang_oost = "0.6.0"
 special = "0.7"
 
 [badges]

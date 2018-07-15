@@ -31,7 +31,7 @@ fn phi_k(a:f64, c:f64, d:f64, u:f64, k:usize)->f64{
 /**This function takes strikes and converts them
 into a vector in the x domain.  Intriguinely, I 
 don't have to sort the result...*/
-fn get_x_from_k(asset:f64, strikes:&Vec<f64>)->Vec<f64>{
+fn get_x_from_k(asset:f64, strikes:&[f64])->Vec<f64>{
     strikes.iter().map(|strike|(asset/strike).ln()).collect()
 }
 
@@ -79,7 +79,7 @@ fn option_theta_transform(cf:&Complex<f64>, rate:f64)->Complex<f64>{
 */
 fn fang_oost_generic<'a, T, U, S>(
     num_u:usize, 
-    x_values:&'a Vec<f64>,
+    x_values:&'a [f64],
     enh_cf:T,
     m_output:U,
     cf:S
@@ -91,7 +91,7 @@ fn fang_oost_generic<'a, T, U, S>(
     let x_min=*x_values.first().unwrap();
     fang_oost::get_expectation_discrete_extended(
         num_u,
-        &x_values, 
+        x_values, 
         |u| enh_cf(&cf(u), u),
         move |u, _, k|phi_k(x_min, x_min, 0.0, u, k)-chi_k(x_min, x_min, 0.0, u)
     ).enumerate().map(|(index, result)|{
@@ -102,7 +102,7 @@ fn fang_oost_generic<'a, T, U, S>(
 pub fn fang_oost_call_price<'a, S>(
     num_u:usize,
     asset:f64,
-    strikes:&'a Vec<f64>,
+    strikes:&'a [f64],
     rate:f64,
     t_maturity:f64,
     cf:S
@@ -124,7 +124,7 @@ pub fn fang_oost_call_price<'a, S>(
 pub fn fang_oost_put_price<'a, S>(
     num_u:usize,
     asset:f64,
-    strikes:&'a Vec<f64>,
+    strikes:&'a [f64],
     rate:f64,
     t_maturity:f64,
     cf:S
@@ -145,7 +145,7 @@ pub fn fang_oost_put_price<'a, S>(
 pub fn fang_oost_call_delta<'a, S>(
     num_u:usize,
     asset:f64,
-    strikes:&'a Vec<f64>,
+    strikes:&'a [f64],
     rate:f64,
     t_maturity:f64,
     cf:S
@@ -166,7 +166,7 @@ pub fn fang_oost_call_delta<'a, S>(
 pub fn fang_oost_put_delta<'a, S>(
     num_u:usize,
     asset:f64,
-    strikes:&'a Vec<f64>,
+    strikes:&'a [f64],
     rate:f64,
     t_maturity:f64,
     cf:S
@@ -187,7 +187,7 @@ pub fn fang_oost_put_delta<'a, S>(
 pub fn fang_oost_call_theta<'a, S>(
     num_u:usize,
     asset:f64,
-    strikes:&'a Vec<f64>,
+    strikes:&'a [f64],
     rate:f64,
     t_maturity:f64,
     cf:S
@@ -208,7 +208,7 @@ pub fn fang_oost_call_theta<'a, S>(
 pub fn fang_oost_put_theta<'a, S>(
     num_u:usize,
     asset:f64,
-    strikes:&'a Vec<f64>,
+    strikes:&'a [f64],
     rate:f64,
     t_maturity:f64,
     cf:S
@@ -229,7 +229,7 @@ pub fn fang_oost_put_theta<'a, S>(
 pub fn fang_oost_call_gamma<'a, S>(
     num_u:usize,
     asset:f64,
-    strikes:&'a Vec<f64>,
+    strikes:&'a [f64],
     rate:f64,
     t_maturity:f64,
     cf:S
@@ -249,7 +249,7 @@ pub fn fang_oost_call_gamma<'a, S>(
 pub fn fang_oost_put_gamma<'a, S>(
     num_u:usize,
     asset:f64,
-    strikes:&'a Vec<f64>,
+    strikes:&'a [f64],
     rate:f64,
     t_maturity:f64,
     cf:S

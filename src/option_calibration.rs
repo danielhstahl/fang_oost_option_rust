@@ -31,7 +31,7 @@ fn get_u_max(n:usize, x_min:f64, x_max:f64)->f64{
 }
 
 fn dft<'a, 'b: 'a>(
-    u_array:&'b Vec<f64>,
+    u_array:&'b [f64],
     x_min:f64,
     x_max:f64,
     n:usize,
@@ -55,7 +55,7 @@ fn dft<'a, 'b: 'a>(
 fn transform_price(p:f64, v:f64)->f64{p/v}
 
 fn transform_prices(
-    arr:&Vec<(f64, f64)>, asset:f64, 
+    arr:&[(f64, f64)], asset:f64, 
     min_v:&(f64, f64), max_v:&(f64, f64)
 )->Vec<(f64, f64)>{
     let mut price_t:Vec<(f64, f64)>=vec![];
@@ -73,7 +73,7 @@ fn transform_prices(
 fn threshold_condition(strike:f64, threshold:f64)->bool{strike<threshold}
 
 fn get_option_spline<'a>(
-    strikes_and_option_prices:&Vec<(f64, f64)>,
+    strikes_and_option_prices:&[(f64, f64)],
     stock:f64,
     discount:f64,
     min_strike:f64,
@@ -105,13 +105,13 @@ fn get_option_spline<'a>(
 
 
 pub fn generate_fo_estimate(
-    strikes_and_option_prices:&Vec<(f64, f64)>,
+    strikes_and_option_prices:&[(f64, f64)],
     stock:f64,
     rate:f64,
     maturity:f64,
     min_strike:f64,
     max_strike:f64
-)->impl Fn(usize, &Vec<f64>)->Vec<Complex<f64>>
+)->impl Fn(usize, &[f64])->Vec<Complex<f64>>
 {
     let discount=(-maturity*rate).exp();
     let spline=get_option_spline(
@@ -138,7 +138,7 @@ pub fn generate_fo_estimate(
 }
 
 pub fn get_obj_fn_arr<'a, T>(
-    phi_hat:Vec<Complex<f64>>,
+    phi_hat:Vec<Complex<f64>>, //do we really want to borrow this??
     u_array:Vec<f64>,
     cf_fn:T
 )->impl Fn(&[f64])->f64
@@ -172,6 +172,7 @@ mod tests {
             );
         }
     }
+    #[test]
     fn test_get_obj_one_parameter(){
         let cf=|u:&Complex<f64>, sl:&[f64]|Complex::new(u.im, 0.0);
         let arr=vec![Complex::new(3.0, 0.0), Complex::new(4.0, 0.0), Complex::new(5.0, 0.0)];

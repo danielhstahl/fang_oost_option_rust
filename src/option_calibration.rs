@@ -67,7 +67,7 @@ fn transform_prices(
 }
 fn threshold_condition(strike:f64, threshold:f64)->bool{strike<threshold}
 
-fn get_option_spline<'a>(
+pub fn get_option_spline<'a>(
     strikes_and_option_prices:&[(f64, f64)],
     stock:f64,
     discount:f64,

@@ -56,13 +56,26 @@ fn transform_prices(
     let mut price_t:Vec<(f64, f64)>=vec![];
     let (min_strike, min_option_price)=min_v;
     let (max_strike, max_option_price)=max_v;
-    price_t.push((transform_price(*min_strike, asset), transform_price(*min_option_price, asset)));
+    price_t.push(
+        (
+            transform_price(*min_strike, asset), 
+            transform_price(*min_option_price, asset)
+        )
+    );
     price_t.append(
         &mut arr.iter().map(|(strike, option_price)|{
-            (transform_price(*strike, asset), transform_price(*option_price, asset))
+            (
+                transform_price(*strike, asset), 
+                transform_price(*option_price, asset)
+            )
         }).collect()
     );
-    price_t.push((transform_price(*max_strike, asset), transform_price(*max_option_price, asset)));
+    price_t.push(
+        (
+            transform_price(*max_strike, asset), 
+            transform_price(*max_option_price, asset)
+        )
+    );
     price_t
 }
 fn threshold_condition(strike:f64, threshold:f64)->bool{strike<threshold}
@@ -84,17 +97,40 @@ pub fn get_option_spline<'a>(
     );
     let normalized_strike_threshold:f64=1.0;
 
-    let (threshold, _)=*padded_strikes_and_option_prices.iter().rev().find(|(strike, _)|strike<&normalized_strike_threshold).unwrap();
+    let (left, right):(Vec<(f64, f64)>, Vec<(f64, f64)>)=padded_strikes_and_option_prices.into_iter().partition(|(strike, _)|strike<=&normalized_strike_threshold);
 
-    let (left, right):(Vec<(f64, f64)>, Vec<(f64, f64)>)=padded_strikes_and_option_prices.into_iter().partition(|(strike, _)|threshold_condition(*strike, threshold));
+    let (threshold_left, _)=*left.last().unwrap();
+    let (threshold_right, _)=*right.first().unwrap();
+    let threshold=(threshold_left+threshold_right)*0.5;
+    println!("Threshold: {}", threshold);
+    let left_transform:Vec<(f64, f64)>=left.into_iter().map(|(strike, price)|{
+        (
+            strike, 
+            price-max_zero_or_number(
+                normalized_strike_threshold-strike*discount
+            )
+        )
+    }).collect();
 
+    let right_transform:Vec<(f64, f64)>=right.into_iter().map(|(strike, price)|{
+        (
+            strike, 
+            price.ln()
+        )
+    }).collect();
+    println!("{}", left_transform.len());
+    println!("{}", right_transform.len());
 
-    let left_transform=left.into_iter().map(|(strike, price)|(strike, price-max_zero_or_number(normalized_strike_threshold-strike*discount))).collect();
-    let right_transform=right.into_iter().map(|(strike, price)|(strike, price.ln())).collect();
     let s_low=monotone_spline::spline_mov(left_transform);
     let s_high=monotone_spline::spline_mov(right_transform);
     move |strike:f64|{
-        if threshold_condition(strike, threshold) {s_low(strike)} else { s_high(strike).exp()-max_zero_or_number(normalized_strike_threshold-strike*discount)}
+        if threshold_condition(strike, threshold) {
+            s_low(strike)
+        } else { 
+            s_high(strike).exp()-max_zero_or_number(
+                normalized_strike_threshold-strike*discount
+            )
+        }
     }
 }
 
@@ -180,6 +216,35 @@ mod tests {
         let expected=9.0;//3*3^2/3
         let tmp:f64=0.0;
         assert_eq!(hoc(&[tmp]), expected);
+    }
+    #[test]
+    fn test_option_spline(){
+        let tmp_strikes_and_option_prices:Vec<(f64, f64)>=vec![
+            (95.0, 85.0), 
+            (130.0, 51.5), 
+            (150.0, 35.38), 
+            (160.0, 28.3), 
+            (165.0, 25.2), 
+            (170.0, 22.27), 
+            (175.0, 19.45), 
+            (185.0, 14.77), 
+            (190.0, 12.75), 
+            (195.0, 11.0), 
+            (200.0, 9.35), 
+            (210.0, 6.9), 
+            (240.0, 2.55), 
+            (250.0, 1.88)
+        ];
+        let maturity:f64=1.0;
+        let rate=0.05;
+        let asset=178.46;
+        let discount=(-rate*maturity).exp();
+        let spline=get_option_spline(
+            &tmp_strikes_and_option_prices, 
+            asset, discount, 0.00001, 5000.0
+        );
+        let sp_result=spline(160.0/asset);
+        assert_eq!(sp_result, 28.3/asset-max_zero_or_number(1.0-(160.0/asset)*discount));
     }
 
 }

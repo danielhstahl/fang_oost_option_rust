@@ -52,7 +52,6 @@ pub fn spline_mov(
             x>=x_curr && x<=x_next 
         }).unwrap();
 
-        //let (x_curr, y_curr)=results[0];
         let (x_next, y_next)=results[1];
         let diff=x-x_next;
         let diff_sq=diff.powi(2);
@@ -80,6 +79,7 @@ mod tests {
         }
         
     }
+    #[test]
     fn test_returns_in_between_value(){
         let x_y:Vec<(f64, f64)>=vec![(1.0, 2.0), (2.0, 2.5), (3.0, 3.0)];
         let spline=spline_mov(x_y);

@@ -1,12 +1,7 @@
 extern crate num;
 extern crate num_complex;
-extern crate black_scholes;
 extern crate rayon;
 extern crate fang_oost;
-#[cfg(test)]
-extern crate statrs;
-#[cfg(test)]
-extern crate special;
 
 use std::f64::consts::PI;
 

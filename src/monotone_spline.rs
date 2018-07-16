@@ -1,6 +1,4 @@
 extern crate num;
-#[cfg(test)]
-extern crate statrs;
 
 pub fn spline_mov(
     x_and_y:Vec<(f64, f64)>

@@ -1,14 +1,11 @@
 extern crate num;
 extern crate num_complex;
-extern crate black_scholes;
 extern crate rayon;
 extern crate fang_oost;
 #[cfg(test)]
-extern crate statrs;
-#[cfg(test)]
-extern crate special;
-#[cfg(test)]
 use std::f64::consts::PI;
+#[cfg(test)]
+extern crate black_scholes;
 
 use self::num_complex::Complex;
 use self::rayon::prelude::*;
@@ -263,7 +260,6 @@ pub fn fang_oost_put_gamma<'a, S>(
 mod tests {
     use option_pricing::*;
     use std::f64::consts::SQRT_2;
-    use self::special::Error;
     use std::time::{Duration, Instant};
     fn get_fang_oost_k_at_index(
         x_min:f64,

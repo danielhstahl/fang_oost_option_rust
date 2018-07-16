@@ -10,7 +10,7 @@ use self::rayon::prelude::*;
 use std;
 use monotone_spline;
 
-fn max_zero_or_number(num:f64)->f64{
+pub fn max_zero_or_number(num:f64)->f64{
     if num>0.0 {num} else {0.0}
 }
 

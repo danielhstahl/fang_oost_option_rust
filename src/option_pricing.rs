@@ -6,6 +6,8 @@ extern crate fang_oost;
 use std::f64::consts::PI;
 #[cfg(test)]
 extern crate black_scholes;
+#[cfg(test)]
+extern crate cf_functions;
 
 use self::num_complex::Complex;
 use self::rayon::prelude::*;
@@ -307,6 +309,34 @@ mod tests {
                 epsilon=0.001
             );
         }
+        
+    }
+    #[test]
+    fn test_fang_oost_call_price_with_merton(){
+        let r=0.05;
+        let sig=0.3;
+        let t=1.0;
+        let asset=50.0;
+        let lambda=0.5;
+        let mu_j=0.05;
+        let sig_j=0.2;
+        let v0=0.8;
+        let speed=0.5;
+        let ada_v=0.3;
+        let rho=-0.5;
+        let inst_cf=cf_functions::merton_time_change_cf(
+            t, r, lambda, mu_j, sig_j, sig, v0,
+            speed, ada_v, rho
+        );
+
+        let x_max=5.0;
+        let num_x=(2 as usize).pow(10);
+        let num_u=64;
+        let k_array=vec![5000.0, 45.0, 50.0, 55.0, 0.00001];
+        let my_option_price=fang_oost_call_price(num_u, asset, &k_array, r, t, inst_cf);
+        assert_eq!(my_option_price[1]>0.0&&my_option_price[1]<asset, true);
+        assert_eq!(my_option_price[2]>0.0&&my_option_price[2]<asset, true);
+        assert_eq!(my_option_price[3]>0.0&&my_option_price[3]<asset, true);
         
     }
     #[test]

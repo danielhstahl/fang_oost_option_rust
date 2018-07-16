@@ -102,7 +102,6 @@ pub fn get_option_spline<'a>(
     let (threshold_left, _)=*left.last().unwrap();
     let (threshold_right, _)=*right.first().unwrap();
     let threshold=(threshold_left+threshold_right)*0.5;
-    println!("Threshold: {}", threshold);
     let left_transform:Vec<(f64, f64)>=left.into_iter().map(|(strike, price)|{
         (
             strike, 
@@ -118,9 +117,6 @@ pub fn get_option_spline<'a>(
             price.ln()
         )
     }).collect();
-    println!("{}", left_transform.len());
-    println!("{}", right_transform.len());
-
     let s_low=monotone_spline::spline_mov(left_transform);
     let s_high=monotone_spline::spline_mov(right_transform);
     move |strike:f64|{

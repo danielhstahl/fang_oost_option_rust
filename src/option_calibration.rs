@@ -39,7 +39,15 @@ fn dft<'a, 'b: 'a>(
         (
             *u, 
             (0..n).fold(cmp, |accum, index|{
-                let simpson=if index==0||index==(n-1) { 1.0} else { if index%2==0 {2.0} else {4.0} };
+                let simpson=if index==0||index==(n-1) { 
+                    1.0
+                } else { 
+                    if index%2==0 {
+                        2.0
+                    } else {
+                        4.0
+                    } 
+                };
                 let x=x_min+dx*(index as f64);
                 accum+(cmp*u*x).exp()*fn_to_invert(x, index)*simpson*dx/3.0
             })
@@ -97,34 +105,36 @@ pub fn get_option_spline<'a>(
     );
     let normalized_strike_threshold:f64=1.0;
 
-    let (left, right):(Vec<(f64, f64)>, Vec<(f64, f64)>)=padded_strikes_and_option_prices.into_iter().partition(|(strike, _)|strike<=&normalized_strike_threshold);
+    let (left, right):(Vec<(f64, f64)>, Vec<(f64, f64)>)=padded_strikes_and_option_prices.into_iter().partition(|(normalized_strike, _)|normalized_strike<=&normalized_strike_threshold);
 
     let (threshold_left, _)=*left.last().expect("Should have strikes below the at-the-money strike");
     let (threshold_right, _)=*right.first().expect("Should have above below the at-the-money strike");
     let threshold=(threshold_left+threshold_right)*0.5;
-    let left_transform:Vec<(f64, f64)>=left.into_iter().map(|(strike, price)|{
-        (
-            strike, 
-            price-max_zero_or_number(
-                normalized_strike_threshold-strike*discount
+    let left_transform:Vec<(f64, f64)>=left.into_iter()
+        .map(|(normalized_strike, normalized_price)|{
+            (
+                normalized_strike, 
+                normalized_price-max_zero_or_number(
+                    normalized_strike_threshold-normalized_strike*discount
+                )
             )
-        )
-    }).collect();
+        }).collect();
 
-    let right_transform:Vec<(f64, f64)>=right.into_iter().map(|(strike, price)|{
-        (
-            strike, 
-            price.ln()
-        )
-    }).collect();
+    let right_transform:Vec<(f64, f64)>=right.into_iter()
+        .map(|(normalized_strike, normalized_price)|{
+            (
+                normalized_strike, 
+                normalized_price.ln()
+            )
+        }).collect();
     let s_low=monotone_spline::spline_mov(left_transform);
     let s_high=monotone_spline::spline_mov(right_transform);
-    move |strike:f64|{
-        if threshold_condition(strike, threshold) {
-            s_low(strike)
+    move |normalized_strike:f64|{
+        if threshold_condition(normalized_strike, threshold) {
+            s_low(normalized_strike)
         } else { 
-            s_high(strike).exp()-max_zero_or_number(
-                normalized_strike_threshold-strike*discount
+            s_high(normalized_strike).exp()-max_zero_or_number(
+                normalized_strike_threshold-normalized_strike*discount
             )
         }
     }
@@ -155,8 +165,8 @@ pub fn generate_fo_estimate(
         dft(u_array, x_min, x_max, n, |x, _|{
             let exp_x=x.exp();
             let strike=exp_x/discount;
-            let option_price=spline(strike);
-            max_zero_or_number(option_price)
+            let option_price_t=spline(strike);
+            max_zero_or_number(option_price_t)
         }).map(|(u, cf)|{
             let front=u*cmp*(1.0+u*cmp);
             (1.0+cf*front).ln()

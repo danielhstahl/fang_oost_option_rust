@@ -105,10 +105,19 @@ pub fn get_option_spline<'a>(
     );
     let normalized_strike_threshold:f64=1.0;
 
-    let (left, right):(Vec<(f64, f64)>, Vec<(f64, f64)>)=padded_strikes_and_option_prices.into_iter().partition(|(normalized_strike, _)|normalized_strike<=&normalized_strike_threshold);
+    let (left, right):(
+        Vec<(f64, f64)>, 
+        Vec<(f64, f64)>
+    )=padded_strikes_and_option_prices
+        .into_iter()
+        .partition(
+            |(normalized_strike, _)|normalized_strike<=&normalized_strike_threshold
+        );
 
-    let (threshold_left, _)=*left.last().expect("Should have strikes below the at-the-money strike");
-    let (threshold_right, _)=*right.first().expect("Should have above below the at-the-money strike");
+    let (threshold_left, _)=left[left.len()-2];
+    let (threshold_right, _)=left[left.len()-1];
+    //let [.., threshold_left, threshold_right]=left;
+    
     let threshold=(threshold_left+threshold_right)*0.5;
     let left_transform:Vec<(f64, f64)>=left.into_iter()
         .map(|(normalized_strike, normalized_price)|{
@@ -250,6 +259,41 @@ mod tests {
         );
         let sp_result=spline(160.0/asset);
         assert_eq!(sp_result, 28.3/asset-max_zero_or_number(1.0-(160.0/asset)*discount));
+    }
+    #[test]
+    fn test_option_spline_at_many_values(){
+        let tmp_strikes_and_option_prices:Vec<(f64, f64)>=vec![
+            (95.0, 85.0), 
+            (130.0, 51.5), 
+            (150.0, 35.38), 
+            (160.0, 28.3), 
+            (165.0, 25.2), 
+            (170.0, 22.27), 
+            (175.0, 19.45), 
+            (185.0, 14.77), 
+            (190.0, 12.75), 
+            (195.0, 11.0), 
+            (200.0, 9.35), 
+            (210.0, 6.9), 
+            (240.0, 2.55), 
+            (250.0, 1.88)
+        ];
+        let maturity:f64=1.0;
+        let rate=0.05;
+        let asset=178.46;
+        let discount=(-rate*maturity).exp();
+        let spline=get_option_spline(
+            &tmp_strikes_and_option_prices, 
+            asset, discount, 0.00001, 5000.0
+        );
+        let test_vec=vec![4.0, 100.0, 170.0, 175.0, 178.0, asset, 179.0, 185.0, 500.0];
+        test_vec.iter().for_each(|v|{
+            let sp_result=spline(v/asset); //will panic if doesnt work
+        });
+        tmp_strikes_and_option_prices.iter().for_each(|(strike, price)|{
+            let sp_result=spline(strike/asset);
+            assert_eq!(sp_result, price/asset-max_zero_or_number(1.0-(strike/asset)*discount));
+        });
     }
 
 }

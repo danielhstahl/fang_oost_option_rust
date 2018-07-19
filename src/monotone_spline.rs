@@ -4,7 +4,9 @@ pub fn spline_mov(
     x_and_y:Vec<(f64, f64)>
 )-> impl Fn(f64) -> f64
 {
-
+    //assert!(x_and_y.len()>2);
+    let first_x_and_y=*x_and_y.first().expect("input vector should be larger than length one");
+    let last_x_and_y=*x_and_y.last().expect("input vector should be larger than length one");
     let x_and_y_diff:Vec<(f64, f64, f64)>=x_and_y.windows(2).map(|point_and_next|{
         let (x_curr, y_curr)=point_and_next[0];
         let (x_next, y_next)=point_and_next[1];
@@ -18,7 +20,9 @@ pub fn spline_mov(
 
     //begin mut 
     let mut c1s:Vec<(f64, f64, f64)>=vec![];
-    c1s.push(*x_and_y_diff.first().expect("input vector should be larger than length one"));
+    let first_diff=*x_and_y_diff.first().expect("input vector should be larger than length one");
+    let last_diff=*x_and_y_diff.last().expect("input vector should be larger than length one");
+    c1s.push(first_diff);
     c1s.append(&mut x_and_y_diff.windows(2).map(|diff_point_and_next|{
         let (_, x_curr, dy_dx_curr)=diff_point_and_next[0];
         let (_, x_next, dy_dx_next)=diff_point_and_next[1];
@@ -32,7 +36,7 @@ pub fn spline_mov(
         };
         (c1s_val, x_curr, dy_dx_curr)
     }).collect());
-    c1s.push(*x_and_y_diff.last().expect("input vector should be larger than length one"));
+    c1s.push(last_diff);
     //end mut
     let c2_and_c3:Vec<(f64, f64)>=c1s.windows(2).map(|c1_diff|{
         let (c1_curr, dx_curr, dy_dx_curr)=c1_diff[0];
@@ -50,7 +54,7 @@ pub fn spline_mov(
             let (x_curr, _)=w[0];
             let (x_next, _)=w[1];
             x>=x_curr && x<=x_next 
-        }).expect(&format!("Requires x to be between the bounds!  x is currently {}", x));
+        }).expect(&format!("Requires x to be between the bounds!  x is currently {}, lower bound is {}, upper bound is {}", x, first_x_and_y.0, last_x_and_y.0));
 
         let (x_next, y_next)=results[1];
         let diff=x-x_next;

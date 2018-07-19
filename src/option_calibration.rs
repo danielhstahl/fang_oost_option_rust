@@ -99,8 +99,8 @@ pub fn get_option_spline<'a>(
 
     let (left, right):(Vec<(f64, f64)>, Vec<(f64, f64)>)=padded_strikes_and_option_prices.into_iter().partition(|(strike, _)|strike<=&normalized_strike_threshold);
 
-    let (threshold_left, _)=*left.last().unwrap();
-    let (threshold_right, _)=*right.first().unwrap();
+    let (threshold_left, _)=*left.last().expect("Should have strikes below the at-the-money strike");
+    let (threshold_right, _)=*right.first().expect("Should have above below the at-the-money strike");
     let threshold=(threshold_left+threshold_right)*0.5;
     let left_transform:Vec<(f64, f64)>=left.into_iter().map(|(strike, price)|{
         (
@@ -172,7 +172,6 @@ pub fn get_obj_fn_arr<'a, T>(
 where T:Fn(&Complex<f64>, &[f64])->Complex<f64>
 {
     move |params|{
-        //let cf_inst=cf_fn(params);
         let num_arr=u_array.len();
         u_array.iter().enumerate().fold(0.0, |accumulate, (index, u)|{
             let result=cf_fn(&Complex::new(1.0, *u), params);

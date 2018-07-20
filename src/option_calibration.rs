@@ -86,7 +86,7 @@ fn transform_prices(
     );
     price_t
 }
-fn threshold_condition(strike:f64, threshold:f64)->bool{strike<threshold}
+fn threshold_condition(strike:f64, threshold:f64)->bool{strike<=threshold}
 
 pub fn get_option_spline<'a>(
     strikes_and_option_prices:&[(f64, f64)],
@@ -105,21 +105,23 @@ pub fn get_option_spline<'a>(
     );
     let normalized_strike_threshold:f64=1.0;
 
-    let (left, right):(
+    let (left, mut right):(
         Vec<(f64, f64)>, 
         Vec<(f64, f64)>
     )=padded_strikes_and_option_prices
         .into_iter()
-        .partition(
-            |(normalized_strike, _)|normalized_strike<=&normalized_strike_threshold
-        );
+        .rev() //reverse so I can push back on right to get left
+        .partition(|(normalized_strike, _)|{
+            normalized_strike<=&normalized_strike_threshold
+        });
+    let threshold_t=left.first().unwrap().clone();//seems I shoulnd't have to clone here....
+    let (threshold, _)=threshold_t;
+    right.push(threshold_t);
 
-    let (threshold_left, _)=left[left.len()-2];
-    let (threshold_right, _)=left[left.len()-1];
-    //let [.., threshold_left, threshold_right]=left;
-    
-    let threshold=(threshold_left+threshold_right)*0.5;
-    let left_transform:Vec<(f64, f64)>=left.into_iter()
+    //let threshold=(threshold_left+threshold_right)*0.5;
+    let left_transform:Vec<(f64, f64)>=left
+        .into_iter()
+        .rev()
         .map(|(normalized_strike, normalized_price)|{
             (
                 normalized_strike, 
@@ -129,7 +131,9 @@ pub fn get_option_spline<'a>(
             )
         }).collect();
 
-    let right_transform:Vec<(f64, f64)>=right.into_iter()
+    let right_transform:Vec<(f64, f64)>=right
+        .into_iter()
+        .rev()
         .map(|(normalized_strike, normalized_price)|{
             (
                 normalized_strike, 
@@ -292,7 +296,7 @@ mod tests {
         });
         tmp_strikes_and_option_prices.iter().for_each(|(strike, price)|{
             let sp_result=spline(strike/asset);
-            assert_eq!(sp_result, price/asset-max_zero_or_number(1.0-(strike/asset)*discount));
+            assert_abs_diff_eq!(sp_result, price/asset-max_zero_or_number(1.0-(strike/asset)*discount), epsilon=0.0000001);
         });
     }
 

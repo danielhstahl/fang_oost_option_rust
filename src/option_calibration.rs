@@ -164,17 +164,19 @@ pub fn generate_fo_estimate(
 )->impl Fn(usize, &[f64])->Vec<Complex<f64>>
 {
     let discount=(-maturity*rate).exp();
-    let x_min=(discount*min_strike).ln();
-    let x_max=(discount*max_strike).ln();
+    let k_min_adj=discount*min_strike;
+    let k_max_adj=discount*max_strike;
     let spline=get_option_spline(
         strikes_and_option_prices,
         stock,
         discount,
-        min_strike,
-        max_strike
+        k_min_adj,
+        k_max_adj
     );
     let cmp:Complex<f64>=Complex::new(0.0, 1.0);
     move |n, u_array|{
+        let x_min=k_min_adj.ln();
+        let x_max=k_max_adj.ln();
         dft(u_array, x_min, x_max, n, |x, _|{
             let exp_x=x.exp();
             let strike=exp_x/discount;

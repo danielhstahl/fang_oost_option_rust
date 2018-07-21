@@ -179,9 +179,9 @@ pub fn generate_fo_estimate(
         }).collect()
     }
 }
-
+const LARGE_NUMBER:f64=500000.0;
 pub fn get_obj_fn_arr<'a, T>(
-    phi_hat:Vec<Complex<f64>>, //do we really want to borrow this??
+    phi_hat:Vec<Complex<f64>>, //do we really want to borrow/move this??
     u_array:Vec<f64>,
     cf_fn:T
 )->impl Fn(&[f64])->f64
@@ -191,7 +191,12 @@ where T:Fn(&Complex<f64>, &[f64])->Complex<f64>
         let num_arr=u_array.len();
         u_array.iter().enumerate().fold(0.0, |accumulate, (index, u)|{
             let result=cf_fn(&Complex::new(1.0, *u), params);
-            accumulate+(phi_hat[index]-result).norm_sqr()
+            accumulate+if result.re.is_nan()||result.im.is_nan() {
+                LARGE_NUMBER
+            }
+            else {
+                (phi_hat[index]-result).norm_sqr()
+            }            
         })/(num_arr as f64)
     }
 }

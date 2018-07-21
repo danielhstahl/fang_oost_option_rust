@@ -14,15 +14,8 @@ pub fn max_zero_or_number(num:f64)->f64{
     if num>0.0 {num} else {0.0}
 }
 
-fn get_du(n: usize, u_max:f64)->f64{
-    2.0*u_max/(n as f64)
-}
-
 fn get_dx(n:usize, x_min:f64, x_max:f64)->f64{
     (x_max-x_min)/(n as f64-1.0)
-}
-fn get_u_max(n:usize, x_min:f64, x_max:f64)->f64{
-    PI*(n as f64-1.0)/(x_max-x_min)
 }
 
 fn dft<'a, 'b: 'a>(
@@ -110,7 +103,7 @@ pub fn get_option_spline<'a>(
         Vec<(f64, f64)>
     )=padded_strikes_and_option_prices
         .into_iter()
-        .rev() //reverse so I can push back on right to get left
+        .rev() //reverse so I can push back on right to get left threshold
         .partition(|(normalized_strike, _)|{
             normalized_strike<=&normalized_strike_threshold
         });
@@ -331,6 +324,39 @@ mod tests {
         let u_array:Vec<f64>=(1..n).map(|index|index as f64*du).collect();
         let result=hoc_fn(1024, &u_array);
         
+    }
+    #[test]
+    fn test_monotone_spline(){
+        let tmp_strikes_and_option_prices:Vec<(f64, f64)>=vec![
+            (95.0, 85.0), 
+            (130.0, 51.5), 
+            (150.0, 35.38), 
+            (160.0, 28.3), 
+            (165.0, 25.2), 
+            (170.0, 22.27), 
+            (175.0, 19.45), 
+            (185.0, 14.77), 
+            (190.0, 12.75), 
+            (195.0, 11.0), 
+            (200.0, 9.35), 
+            (210.0, 6.9), 
+            (240.0, 2.55), 
+            (250.0, 1.88)
+        ];
+        let maturity:f64=1.0;
+        let rate=0.05;
+        let asset=178.46;
+        let discount=(-rate*maturity).exp();
+        let spline=get_option_spline(
+            &tmp_strikes_and_option_prices, 
+            asset, discount, 0.00001, 5000.0
+        );
+        let test_vec=vec![4.0, 100.0, 170.0, 175.0, 178.0, asset, 179.0, 185.0, 190.0, 195.0, 200.0, 205.0, 208.0, 209.0, 210.0, 215.0, 218.0, 220.0, 500.0];
+
+        test_vec.iter().for_each(|v|{
+            let sp_result=spline(v/asset); //will panic if doesnt work
+            println!("spline at: {}: {}", v, sp_result);
+        });
     }
 
 }

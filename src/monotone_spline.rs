@@ -7,49 +7,46 @@ pub fn spline_mov(
     //assert!(x_and_y.len()>2);
     let first_x_and_y=*x_and_y.first().expect("input vector should be larger than length one");
     let last_x_and_y=*x_and_y.last().expect("input vector should be larger than length one");
-    let x_and_y_diff:Vec<(f64, f64, f64)>=x_and_y.windows(2).map(|point_and_next|{
+    let x_and_y_diff:Vec<(f64, f64)>=x_and_y.windows(2).map(|point_and_next|{
         let (x_curr, y_curr)=point_and_next[0];
         let (x_next, y_next)=point_and_next[1];
 
         let x_diff=x_next-x_curr;
         let y_diff=y_next-y_curr;
         let ms=y_diff/x_diff;
-        (ms, x_diff, ms)
+        (x_diff, ms)
 
     }).collect();
 
     //begin mut 
-    let mut c1s:Vec<(f64, f64, f64)>=vec![];
+    let mut c1s:Vec<f64>=vec![];
     let first_diff=*x_and_y_diff.first().expect("input vector should be larger than length one");
     let last_diff=*x_and_y_diff.last().expect("input vector should be larger than length one");
-    c1s.push(first_diff);
+    c1s.push(first_diff.1);
     c1s.append(&mut x_and_y_diff.windows(2).map(|diff_point_and_next|{
-        let (_, x_curr, dy_dx_curr)=diff_point_and_next[0];
-        let (_, x_next, dy_dx_next)=diff_point_and_next[1];
+        let (x_diff_curr, dy_dx_curr)=diff_point_and_next[0];
+        let (x_diff_next, dy_dx_next)=diff_point_and_next[1];
 
-        let common=x_curr+x_next;
-        let c1s_val=if dy_dx_next*dy_dx_curr<=0.0 {
+        let common=x_diff_curr+x_diff_next;
+        if dy_dx_next*dy_dx_curr<=0.0 {
             0.0
         } 
         else {
-            3.0*common/((common+x_next)/dy_dx_curr+(common+x_curr)/dy_dx_next)
-        };
-        (c1s_val, x_curr, dy_dx_curr)
+            3.0*common/((common+x_diff_next)/dy_dx_curr+(common+x_diff_curr)/dy_dx_next)
+        }
     }).collect());
-    c1s.push(last_diff);
+    c1s.push(last_diff.1);
     //end mut
-    let c2_and_c3:Vec<(f64, f64)>=c1s.windows(2).map(|c1_diff|{
-        let (c1_curr, dx_curr, dy_dx_curr)=c1_diff[0];
-        let (c1_next, _, _)=c1_diff[1];
-        
-        let inv_dx=1.0/dx_curr;
+    let c2_and_c3:Vec<(f64, f64)>=c1s.windows(2).zip(x_and_y_diff.into_iter()).map(|(c1_diff, x_and_y_incr)|{
+        let c1_curr=c1_diff[0];
+        let c1_next=c1_diff[1];
+        let (x_diff_curr, dy_dx_curr)=x_and_y_incr;      
+        let inv_dx=1.0/x_diff_curr;
         let common=c1_curr+c1_next-2.0*dy_dx_curr;
-
         ((dy_dx_curr-c1_curr-common)*inv_dx, common*inv_dx.powi(2))
     }).collect();
 
     move |x|{
-        //find x_val such that x is between x_val_prev, x_val_next
         let (x_min, y_min)=x_and_y.first().expect("input vector should be larger than length one");
         let (x_max, y_max)=x_and_y.last().expect("input vector should be larger than length one");
         if (x_min-x).abs() <= LARGEST_APPROPRIATE_DISTANCE {
@@ -58,18 +55,20 @@ pub fn spline_mov(
         if (x_max-x).abs() <= LARGEST_APPROPRIATE_DISTANCE {
             return *y_max
         }
+        //find x_val such that x is between x_val_prev, x_val_next
         let (found_index, results)=x_and_y.windows(2).enumerate().find(|(_, w)| {
             let (x_curr, _)=w[0];
             let (x_next, _)=w[1];
-            x>=x_curr && x<=x_next 
+            x>=x_curr && x<x_next 
         }).expect(&format!("Requires x to be between the bounds!  x is currently {}, lower bound is {}, upper bound is {}", x, first_x_and_y.0, last_x_and_y.0));
 
-        let (x_next, y_next)=results[1];
-        let diff=x-x_next;
+        let (x_curr, y_curr)=results[0];
+        let diff=x-x_curr;
         let diff_sq=diff.powi(2);
-        let (c1s_elem, _, _)=c1s[found_index];
+        let c1s_elem=c1s[found_index];
         let (c2s_elem, c3s_elem)=c2_and_c3[found_index];
-        y_next+c1s_elem*diff+c2s_elem*diff_sq+c3s_elem*diff*diff_sq        
+        let res=y_curr+c1s_elem*diff+c2s_elem*diff_sq+c3s_elem*diff*diff_sq;
+        y_curr+c1s_elem*diff+c2s_elem*diff_sq+c3s_elem*diff*diff_sq        
     }
 }
 
@@ -115,4 +114,5 @@ mod tests {
         }
         
     }
+
 }

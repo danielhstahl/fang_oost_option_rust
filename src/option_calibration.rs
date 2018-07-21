@@ -114,11 +114,10 @@ pub fn get_option_spline<'a>(
         .partition(|(normalized_strike, _)|{
             normalized_strike<=&normalized_strike_threshold
         });
-    let threshold_t=left.first().unwrap().clone();//seems I shoulnd't have to clone here....
+    let threshold_t=left.first().unwrap().clone();//clone so I can push into right
     let (threshold, _)=threshold_t;
     right.push(threshold_t);
 
-    //let threshold=(threshold_left+threshold_right)*0.5;
     let left_transform:Vec<(f64, f64)>=left
         .into_iter()
         .rev()
@@ -164,19 +163,17 @@ pub fn generate_fo_estimate(
 )->impl Fn(usize, &[f64])->Vec<Complex<f64>>
 {
     let discount=(-maturity*rate).exp();
-    let k_min_adj=discount*min_strike;
-    let k_max_adj=discount*max_strike;
     let spline=get_option_spline(
         strikes_and_option_prices,
         stock,
         discount,
-        k_min_adj,
-        k_max_adj
+        min_strike, //transformed internally to min_strike/asset
+        max_strike  //transformed internally to max_strike/asset
     );
     let cmp:Complex<f64>=Complex::new(0.0, 1.0);
+    let x_min=(discount*transform_price(min_strike, stock)).ln();
+    let x_max=(discount*transform_price(max_strike, stock)).ln();
     move |n, u_array|{
-        let x_min=k_min_adj.ln();
-        let x_max=k_max_adj.ln();
         dft(u_array, x_min, x_max, n, |x, _|{
             let exp_x=x.exp();
             let strike=exp_x/discount;
@@ -300,6 +297,40 @@ mod tests {
             let sp_result=spline(strike/asset);
             assert_abs_diff_eq!(sp_result, price/asset-max_zero_or_number(1.0-(strike/asset)*discount), epsilon=0.0000001);
         });
+    }
+    #[test]
+    fn test_generate_fo_runs(){
+        let tmp_strikes_and_option_prices:Vec<(f64, f64)>=vec![
+            (95.0, 85.0), 
+            (130.0, 51.5), 
+            (150.0, 35.38), 
+            (160.0, 28.3), 
+            (165.0, 25.2), 
+            (170.0, 22.27), 
+            (175.0, 19.45), 
+            (185.0, 14.77), 
+            (190.0, 12.75), 
+            (195.0, 11.0), 
+            (200.0, 9.35), 
+            (210.0, 6.9), 
+            (240.0, 2.55), 
+            (250.0, 1.88)
+        ];
+        let maturity:f64=1.0;
+        let rate=0.05;
+        let asset=178.46;
+        let hoc_fn=generate_fo_estimate(
+            &tmp_strikes_and_option_prices, 
+            asset, rate, 
+            maturity, 
+            0.01, 
+            5000.0
+        );
+        let n:usize=15;
+        let du= 2.0*PI/(n as f64);
+        let u_array:Vec<f64>=(1..n).map(|index|index as f64*du).collect();
+        let result=hoc_fn(1024, &u_array);
+        
     }
 
 }

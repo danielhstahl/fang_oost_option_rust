@@ -1,5 +1,5 @@
 extern crate num;
-
+const LARGEST_APPROPRIATE_DISTANCE:f64=0.00000000001;
 pub fn spline_mov(
     x_and_y:Vec<(f64, f64)>
 )-> impl Fn(f64) -> f64
@@ -50,6 +50,14 @@ pub fn spline_mov(
 
     move |x|{
         //find x_val such that x is between x_val_prev, x_val_next
+        let (x_min, y_min)=x_and_y.first().expect("input vector should be larger than length one");
+        let (x_max, y_max)=x_and_y.last().expect("input vector should be larger than length one");
+        if (x_min-x).abs() <= LARGEST_APPROPRIATE_DISTANCE {
+            return *y_min
+        }
+        if (x_max-x).abs() <= LARGEST_APPROPRIATE_DISTANCE {
+            return *y_max
+        }
         let (found_index, results)=x_and_y.windows(2).enumerate().find(|(_, w)| {
             let (x_curr, _)=w[0];
             let (x_next, _)=w[1];

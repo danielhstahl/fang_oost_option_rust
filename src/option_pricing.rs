@@ -2,8 +2,7 @@ extern crate num;
 extern crate num_complex;
 extern crate rayon;
 extern crate fang_oost;
-#[cfg(test)]
-use std::f64::consts::PI;
+
 #[cfg(test)]
 extern crate black_scholes;
 #[cfg(test)]
@@ -261,8 +260,7 @@ pub fn fang_oost_put_gamma<'a, S>(
 #[cfg(test)]
 mod tests {
     use option_pricing::*;
-    use std::f64::consts::SQRT_2;
-    use std::time::{Duration, Instant};
+    use std::time::{ Instant};
     fn get_fang_oost_k_at_index(
         x_min:f64,
         dk:f64,
@@ -329,8 +327,6 @@ mod tests {
             speed, ada_v, rho
         );
 
-        let x_max=5.0;
-        let num_x=(2 as usize).pow(10);
         let num_u=64;
         let k_array=vec![5000.0, 45.0, 50.0, 55.0, 0.00001];
         let my_option_price=fang_oost_call_price(num_u, asset, &k_array, r, t, inst_cf);
@@ -506,7 +502,6 @@ mod tests {
         println!("Put theta time: {:?}", new_now.duration_since(now));
         let min_n=num_x/4;
         let max_n=num_x-num_x/4;
-        let discount=(-r*t).exp();
         for i in min_n..max_n{
             assert_abs_diff_eq!(
                 black_scholes::put_theta(asset, k_array[i], r, sig, t),

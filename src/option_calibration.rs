@@ -3,6 +3,7 @@ extern crate num_complex;
 extern crate rayon;
 extern crate fang_oost;
 
+#[cfg(test)]
 use std::f64::consts::PI;
 
 use self::num_complex::Complex;
@@ -215,7 +216,7 @@ mod tests {
     }
     #[test]
     fn test_get_obj_one_parameter(){
-        let cf=|u:&Complex<f64>, sl:&[f64]|Complex::new(u.im, 0.0);
+        let cf=|u:&Complex<f64>, _sl:&[f64]|Complex::new(u.im, 0.0);
         let arr=vec![Complex::new(3.0, 0.0), Complex::new(4.0, 0.0), Complex::new(5.0, 0.0)];
         let u_arr=vec![6.0, 7.0, 8.0];
         let hoc=get_obj_fn_arr(
@@ -284,7 +285,7 @@ mod tests {
         );
         let test_vec=vec![4.0, 100.0, 170.0, 175.0, 178.0, asset, 179.0, 185.0, 500.0];
         test_vec.iter().for_each(|v|{
-            let sp_result=spline(v/asset); //will panic if doesnt work
+            let _sp_result=spline(v/asset); //will panic if doesnt work
         });
         tmp_strikes_and_option_prices.iter().for_each(|(strike, price)|{
             let sp_result=spline(strike/asset);
@@ -322,7 +323,7 @@ mod tests {
         let n:usize=15;
         let du= 2.0*PI/(n as f64);
         let u_array:Vec<f64>=(1..n).map(|index|index as f64*du).collect();
-        let result=hoc_fn(1024, &u_array);
+        let _result=hoc_fn(1024, &u_array);
         
     }
     #[test]

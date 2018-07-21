@@ -4,7 +4,6 @@ pub fn spline_mov(
     x_and_y:Vec<(f64, f64)>
 )-> impl Fn(f64) -> f64
 {
-    //assert!(x_and_y.len()>2);
     let first_x_and_y=*x_and_y.first().expect("input vector should be larger than length one");
     let last_x_and_y=*x_and_y.last().expect("input vector should be larger than length one");
     let x_and_y_diff:Vec<(f64, f64)>=x_and_y.windows(2).map(|point_and_next|{
@@ -67,7 +66,6 @@ pub fn spline_mov(
         let diff_sq=diff.powi(2);
         let c1s_elem=c1s[found_index];
         let (c2s_elem, c3s_elem)=c2_and_c3[found_index];
-        let res=y_curr+c1s_elem*diff+c2s_elem*diff_sq+c3s_elem*diff*diff_sq;
         y_curr+c1s_elem*diff+c2s_elem*diff_sq+c3s_elem*diff*diff_sq        
     }
 }

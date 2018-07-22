@@ -18,7 +18,6 @@ pub fn max_zero_or_number(num:f64)->f64{
 fn get_dx(n:usize, x_min:f64, x_max:f64)->f64{
     (x_max-x_min)/(n as f64-1.0)
 }
-
 fn dft<'a, 'b: 'a>(
     u_array:&'b [f64],
     x_min:f64,
@@ -28,6 +27,7 @@ fn dft<'a, 'b: 'a>(
 )->impl ParallelIterator<Item = (f64, Complex<f64>) >+'a
 {
     let cmp:Complex<f64>=Complex::new(0.0, 0.0);
+    let cmp_i:Complex<f64>=Complex::new(0.0, 1.0);
     let dx=get_dx(n, x_min, x_max);
     u_array.par_iter().map(move |u|{
         (
@@ -43,7 +43,7 @@ fn dft<'a, 'b: 'a>(
                     } 
                 };
                 let x=x_min+dx*(index as f64);
-                accum+(cmp*u*x).exp()*fn_to_invert(x, index)*simpson*dx/3.0
+                accum+(cmp_i*u*x).exp()*fn_to_invert(x, index)*simpson*dx/3.0
             })
         )
     })
@@ -330,6 +330,53 @@ mod tests {
         let u_array:Vec<f64>=(1..n).map(|index|index as f64*du).collect();
         let _result=hoc_fn(1024, &u_array);
         
+    }
+    #[test]
+    fn test_generate_fo_accuracy(){
+        let tmp_strikes_and_option_prices:Vec<(f64, f64)>=vec![
+            (95.0, 85.0), 
+            (130.0, 51.5), 
+            (150.0, 35.38), 
+            (160.0, 28.3), 
+            (165.0, 25.2), 
+            (170.0, 22.27), 
+            (175.0, 19.45), 
+            (185.0, 14.77), 
+            (190.0, 12.75), 
+            (195.0, 11.0), 
+            (200.0, 9.35), 
+            (210.0, 6.9), 
+            (240.0, 2.55), 
+            (250.0, 1.88)
+        ];
+        let maturity:f64=1.0;
+        let rate=0.05;
+        let asset=178.46;
+        let hoc_fn=generate_fo_estimate(
+            &tmp_strikes_and_option_prices, 
+            asset, rate, 
+            maturity, 
+            0.01, 
+            5000.0
+        );
+        let n:usize=15;
+        let du= 2.0*PI/(n as f64);
+        let u_array:Vec<f64>=(1..n).map(|index|index as f64*du).collect();
+        let result=hoc_fn(1024, &u_array);
+        for v in result.iter(){
+            println!("this is v: {}", v);
+        }
+    }
+    #[test]
+    fn test_dft(){
+        let u_array=vec![2.0];
+        let x_min=-5.0;
+        let x_max=5.0;
+        let n:usize=10;
+        let fn_to_invert=|x:f64, _| x.powi(2);
+        let result:Vec<Complex<f64>>=dft(&u_array, x_min, x_max, n, fn_to_invert).map(|(_, v)|v).collect();
+        assert_abs_diff_eq!(result[0].re, -5.93082, epsilon=0.00001);
+        assert_abs_diff_eq!(result[0].im, -14.3745, epsilon=0.00001);
     }
     #[test]
     fn test_monotone_spline(){

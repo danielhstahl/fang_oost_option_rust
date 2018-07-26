@@ -49,7 +49,15 @@ fn dft<'a, 'b: 'a>(
     })
 }
 
-fn transform_price(p:f64, v:f64)->f64{p/v}
+
+const normalized_strike_threshold:f64=1.0;
+pub fn transform_price(p:f64, v:f64)->f64{p/v}
+
+pub fn adjust_domain(normalized_strike:f64, discount:f64)->f64{
+    max_zero_or_number(
+        normalized_strike_threshold-normalized_strike*discount
+    )
+}
 
 fn transform_prices(
     arr:&[(f64, f64)], asset:f64, 
@@ -97,7 +105,6 @@ pub fn get_option_spline<'a>(
         &(min_strike, min_option), 
         &(max_strike, max_option)
     );
-    let normalized_strike_threshold:f64=1.0;
 
     let (left, mut right):(
         Vec<(f64, f64)>, 
@@ -118,9 +125,7 @@ pub fn get_option_spline<'a>(
         .map(|(normalized_strike, normalized_price)|{
             (
                 normalized_strike, 
-                normalized_price-max_zero_or_number(
-                    normalized_strike_threshold-normalized_strike*discount
-                )
+                normalized_price-adjust_domain(normalized_strike, discount)
             )
         }).collect();
 
@@ -139,9 +144,7 @@ pub fn get_option_spline<'a>(
         if threshold_condition(normalized_strike, threshold) {
             s_low(normalized_strike)
         } else { 
-            s_high(normalized_strike).exp()-max_zero_or_number(
-                normalized_strike_threshold-normalized_strike*discount
-            )
+            s_high(normalized_strike).exp()-adjust_domain(normalized_strike, discount)
         }
     }
 }

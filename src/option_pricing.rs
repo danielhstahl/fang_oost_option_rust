@@ -527,13 +527,13 @@ mod tests {
         let y=0.6442;
         let cgmy_cf=|u:&Complex<f64>| (cf_functions::cgmy_log_risk_neutral_cf(u, c, g, m, y, r, sig)*t).exp();
 
-        let num_u=64 as usize;
+        let num_u=256 as usize;
         let options_price=fang_oost_call_price(num_u, s0, &k_array, r, t, cgmy_cf);
         let reference_price=16.212478;//https://cs.uwaterloo.ca/~paforsyt/levy.pdf pg 19
         assert_abs_diff_eq!(
             options_price[1],
             reference_price,
-            epsilon=0.00001
+            epsilon=0.0001
         );
     }
 

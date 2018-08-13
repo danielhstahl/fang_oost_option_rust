@@ -17,7 +17,7 @@ fang_oost = "0.7.0"
 [dev-dependencies]
 approx = "0.2.0"
 black_scholes = "0.2.3"
-cf_functions = "0.4.0"
+cf_functions = "0.5.0"
 
 [badges]
 travis-ci = { repository = "phillyfan1138/fang_oost_option_rust" }

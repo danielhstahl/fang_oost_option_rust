@@ -586,14 +586,18 @@ mod tests {
 
         let k_array=vec![7500.0, 100.0, 0.3];
         
-        let heston_cf=|u:&Complex<f64>| (r*T*u+cf_functions::cir_log_mgf_cmp(
-            -cf_functions::merton_log_risk_neutral_cf(u, 0.0, 1.0, 1.0, 0.0, sig),
-            speed,
-            kappa-eta_v*rho*u*sig,
-            eta_v,
-            T, 
-            v0_hat
-        )).exp();
+        let heston_cf=|u:&Complex<f64>| {
+            let cmp_mu=-cf_functions::merton_log_risk_neutral_cf(u, 0.0, 1.0, 1.0, 0.0, sig);
+            let cmp_drift=kappa-eta_v*rho*u*sig;
+            (r*T*u+cf_functions::cir_log_mgf_cmp(
+                &cmp_mu,
+                speed,
+                &cmp_drift,
+                eta_v,
+                T, 
+                v0_hat
+            )).exp()
+        };
         
         let num_u=256 as usize;
         let options_price=fang_oost_call_price(num_u, S0, &k_array, r, T, heston_cf);

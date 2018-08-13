@@ -565,4 +565,46 @@ mod tests {
             epsilon=0.00001
         );
     }
+
+
+
+
+    #[test]
+    fn test_fang_oost_call_heston(){
+        //http://ta.twi.tudelft.nl/mf/users/oosterle/oosterlee/COS.pdf pg 15
+
+        let b=0.0398;
+        let a=1.5768;
+        let c=0.5751;
+        let rho=-0.5711;
+        let v0=0.0175;
+        let r=0.0;
+        let sig=b.sqrt();
+        let speed=a;
+        let T=1.0;
+        let S0=100.0;
+        let kappa=speed;
+        let v0_hat=v0/b;
+        let eta_v=c/b.sqrt();
+
+        let k_array=vec![7500.0, 100.0, 0.3];
+        
+        let heston_cf=|u:&Complex<f64>| (r*T*u+ch_functions::cir_log_mgf_cmp(
+            -ch_functions::merton_log_risk_neutral_cf(u, 0.0, 1.0, 1.0, 0.0, sig),
+            speed,
+            kappa-eta_v*rho*u*sig,
+            eta_v,
+            T, 
+            v0_hat
+        )).exp();
+        
+        let num_u=256 as usize;
+        let options_price=fang_oost_call_price(num_u, S0, &k_array, r, T, heston_cf);
+        let reference_price=5.78515545;
+        assert_abs_diff_eq!(
+            options_price.first().unwrap(),
+            reference_price,
+            epsilon=0.00001
+        );
+    }
 }

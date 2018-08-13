@@ -528,13 +528,13 @@ mod tests {
         let G=7.08;
         let M=29.97;
         let Y=0.6442;
-        let cgmy_cf=|u:&Complex<f64>| (ch_functions::cgmy_log_risk_neutral_cf(u, C, G, M, Y, r, sigma)*T).exp();
+        let cgmy_cf=|u:&Complex<f64>| (cf_functions::cgmy_log_risk_neutral_cf(u, C, G, M, Y, r, sig)*T).exp();
 
         let num_u=64 as usize;
         let options_price=fang_oost_call_price(num_u, S0, &k_array, r, T, cgmy_cf);
         let reference_price=16.212478;//https://cs.uwaterloo.ca/~paforsyt/levy.pdf pg 19
         assert_abs_diff_eq!(
-            options_price.first().unwrap(),
+            *options_price.first().unwrap(),
             reference_price,
             epsilon=0.00001
         );
@@ -554,26 +554,23 @@ mod tests {
         let G=5.0;
         let M=5.0;
         let Y=0.5;
-        let cgmy_cf=|u:&Complex<f64>| ch_functions::cgmy_log_risk_neutral_cf(u, C, G, M, Y, r, sigma).exp();
+        let cgmy_cf=|u:&Complex<f64>| cf_functions::cgmy_log_risk_neutral_cf(u, C, G, M, Y, r, sig).exp();
 
         let num_u=64 as usize;
         let options_price=fang_oost_call_price(num_u, S0, &k_array, r, T, cgmy_cf);
         let reference_price=19.812948843;
         assert_abs_diff_eq!(
-            options_price.first().unwrap(),
+            *options_price.first().unwrap(),
             reference_price,
             epsilon=0.00001
         );
     }
 
-
-
-
     #[test]
     fn test_fang_oost_call_heston(){
         //http://ta.twi.tudelft.nl/mf/users/oosterle/oosterlee/COS.pdf pg 15
 
-        let b=0.0398;
+        let b:f64=0.0398;
         let a=1.5768;
         let c=0.5751;
         let rho=-0.5711;
@@ -589,8 +586,8 @@ mod tests {
 
         let k_array=vec![7500.0, 100.0, 0.3];
         
-        let heston_cf=|u:&Complex<f64>| (r*T*u+ch_functions::cir_log_mgf_cmp(
-            -ch_functions::merton_log_risk_neutral_cf(u, 0.0, 1.0, 1.0, 0.0, sig),
+        let heston_cf=|u:&Complex<f64>| (r*T*u+cf_functions::cir_log_mgf_cmp(
+            -cf_functions::merton_log_risk_neutral_cf(u, 0.0, 1.0, 1.0, 0.0, sig),
             speed,
             kappa-eta_v*rho*u*sig,
             eta_v,
@@ -602,7 +599,7 @@ mod tests {
         let options_price=fang_oost_call_price(num_u, S0, &k_array, r, T, heston_cf);
         let reference_price=5.78515545;
         assert_abs_diff_eq!(
-            options_price.first().unwrap(),
+            *options_price.first().unwrap(),
             reference_price,
             epsilon=0.00001
         );

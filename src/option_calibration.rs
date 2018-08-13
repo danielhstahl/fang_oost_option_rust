@@ -50,12 +50,12 @@ fn dft<'a, 'b: 'a>(
 }
 
 
-const normalized_strike_threshold:f64=1.0;
+const NORMALIZED_STRIKE_THRESHOLD:f64=1.0;
 pub fn transform_price(p:f64, v:f64)->f64{p/v}
 
 pub fn adjust_domain(normalized_strike:f64, discount:f64)->f64{
     max_zero_or_number(
-        normalized_strike_threshold-normalized_strike*discount
+        NORMALIZED_STRIKE_THRESHOLD-normalized_strike*discount
     )
 }
 
@@ -113,7 +113,7 @@ pub fn get_option_spline<'a>(
         .into_iter()
         .rev() //reverse so I can push back on right to get left threshold
         .partition(|(normalized_strike, _)|{
-            normalized_strike<=&normalized_strike_threshold
+            normalized_strike<=&NORMALIZED_STRIKE_THRESHOLD
         });
     let threshold_t=left.first().unwrap().clone();//clone so I can push into right
     let (threshold, _)=threshold_t;

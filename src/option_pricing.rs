@@ -533,7 +533,7 @@ mod tests {
         assert_abs_diff_eq!(
             options_price[1],
             reference_price,
-            epsilon=0.0001
+            epsilon=0.001
         );
     }
 

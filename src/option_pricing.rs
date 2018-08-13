@@ -510,4 +510,59 @@ mod tests {
             );
         }
     }
+
+
+
+
+    #[test]
+    fn test_fang_oost_cgmy_call(){
+         //https://cs.uwaterloo.ca/~paforsyt/levy.pdf pg 19
+        //S K T r q σ C G M Y
+        //90 98 0.25 0.06 0.0 0.0 16.97 7.08 29.97 0.6442
+        let k_array=vec![7500.0, 98.0, 0.3];
+        let r=0.06;
+        let sig=0.0;
+        let T=0.25;
+        let S0=90.0;
+        let C=16.97;
+        let G=7.08;
+        let M=29.97;
+        let Y=0.6442;
+        let cgmy_cf=|u:&Complex<f64>| (ch_functions::cgmy_log_risk_neutral_cf(u, C, G, M, Y, r, sigma)*T).exp();
+
+        let num_u=64 as usize;
+        let options_price=fang_oost_call_price(num_u, S0, &k_array, r, T, cgmy_cf);
+        let reference_price=16.212478;//https://cs.uwaterloo.ca/~paforsyt/levy.pdf pg 19
+        assert_abs_diff_eq!(
+            options_price.first().unwrap(),
+            reference_price,
+            epsilon=0.00001
+        );
+    }
+
+    #[test]
+    fn test_fang_oost_cgmy_call_with_t_one(){
+        //http://ta.twi.tudelft.nl/mf/users/oosterle/oosterlee/COS.pdf pg 19
+        //S0 = 100, K = 100, r = 0.1, q = 0, C = 1, G = 5, M = 5, T = 1
+        //= 19.812948843
+        let k_array=vec![7500.0, 100.0, 0.3];
+        let r=0.1;
+        let sig=0.0;
+        let T=1.0;
+        let S0=100.0;
+        let C=1.0;
+        let G=5.0;
+        let M=5.0;
+        let Y=0.5;
+        let cgmy_cf=|u:&Complex<f64>| ch_functions::cgmy_log_risk_neutral_cf(u, C, G, M, Y, r, sigma).exp();
+
+        let num_u=64 as usize;
+        let options_price=fang_oost_call_price(num_u, S0, &k_array, r, T, cgmy_cf);
+        let reference_price=19.812948843;
+        assert_abs_diff_eq!(
+            options_price.first().unwrap(),
+            reference_price,
+            epsilon=0.00001
+        );
+    }
 }

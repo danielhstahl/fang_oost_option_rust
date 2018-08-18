@@ -510,4 +510,99 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn test_fang_oost_cgmy_call(){
+         //https://cs.uwaterloo.ca/~paforsyt/levy.pdf pg 19
+        //S K T r q σ C G M Y
+        //90 98 0.25 0.06 0.0 0.0 16.97 7.08 29.97 0.6442
+        let k_array=vec![7500.0, 98.0, 0.3];
+        let r=0.06;
+        let sig=0.0;
+        let t=0.25;
+        let s0=90.0;
+        let c=16.97;
+        let g=7.08;
+        let m=29.97;
+        let y=0.6442;
+        let cgmy_cf=|u:&Complex<f64>| (cf_functions::cgmy_log_risk_neutral_cf(u, c, g, m, y, r, sig)*t).exp();
+
+        let num_u=256 as usize;
+        let options_price=fang_oost_call_price(num_u, s0, &k_array, r, t, cgmy_cf);
+        let reference_price=16.212478;//https://cs.uwaterloo.ca/~paforsyt/levy.pdf pg 19
+        assert_abs_diff_eq!(
+            options_price[1],
+            reference_price,
+            epsilon=0.001
+        );
+    }
+
+    #[test]
+    fn test_fang_oost_cgmy_call_with_t_one(){
+        //http://ta.twi.tudelft.nl/mf/users/oosterle/oosterlee/COS.pdf pg 19
+        //S0 = 100, K = 100, r = 0.1, q = 0, C = 1, G = 5, M = 5, T = 1
+        //= 19.812948843
+        let k_array=vec![7500.0, 100.0, 0.3];
+        let r=0.1;
+        let sig=0.0;
+        let t=1.0;
+        let s0=100.0;
+        let c=1.0;
+        let g=5.0;
+        let m=5.0;
+        let y=0.5;
+        let cgmy_cf=|u:&Complex<f64>| (t*cf_functions::cgmy_log_risk_neutral_cf(u, c, g, m, y, r, sig)).exp();
+
+        let num_u=64 as usize;
+        let options_price=fang_oost_call_price(num_u, s0, &k_array, r, t, cgmy_cf);
+        let reference_price=19.812948843;
+        assert_abs_diff_eq!(
+            options_price[1],
+            reference_price,
+            epsilon=0.00001
+        );
+    }
+
+    #[test]
+    fn test_fang_oost_call_heston(){
+        //http://ta.twi.tudelft.nl/mf/users/oosterle/oosterlee/COS.pdf pg 15
+
+        let b:f64=0.0398;
+        let a=1.5768;
+        let c=0.5751;
+        let rho=-0.5711;
+        let v0=0.0175;
+        let r=0.0;
+        let sig=b.sqrt();
+        let speed=a;
+        let t=1.0;
+        let s0=100.0;
+        let kappa=speed;
+        let v0_hat=v0/b;
+        let eta_v=c/b.sqrt();
+
+        let k_array=vec![7500.0, 100.0, 0.3];
+        
+        let heston_cf=|u:&Complex<f64>| {
+            let cmp_mu=-cf_functions::merton_log_risk_neutral_cf(u, 0.0, 1.0, 1.0, 0.0, sig);
+            let cmp_drift=kappa-eta_v*rho*u*sig;
+            (r*t*u+cf_functions::cir_log_mgf_cmp(
+                &cmp_mu,
+                speed,
+                &cmp_drift,
+                eta_v,
+                t, 
+                v0_hat
+            )).exp()
+        };
+        
+        let num_u=256 as usize;
+        let options_price=fang_oost_call_price(num_u, s0, &k_array, r, t, heston_cf);
+        let reference_price=5.78515545;
+        assert_abs_diff_eq!(
+            options_price[1],
+            reference_price,
+            epsilon=0.00001
+        );
+    }
 }

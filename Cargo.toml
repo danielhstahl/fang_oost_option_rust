@@ -16,7 +16,7 @@ fang_oost = "0.7.0"
 
 [dev-dependencies]
 approx = "0.2.0"
-black_scholes = "0.2.3"
+black_scholes = "0.2.7"
 cf_functions = "0.2.0"
 
 [badges]

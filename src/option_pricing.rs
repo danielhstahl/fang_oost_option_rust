@@ -10,7 +10,7 @@
 //! handle discrete strikes well, the algorithm takes a vector of 
 //! strike prices with no requirement that the strike prices be 
 //! equidistant.  All that is required is that they are sorted largest 
-//! to smallest. http://ta.twi.tudelft.nl/mf/users/oosterle/oosterlee/COS.pdf
+//! to smallest. [Link to Fang-Oosterlee paper](http://ta.twi.tudelft.nl/mf/users/oosterle/oosterlee/COS.pdf).
 //! 
 extern crate num;
 extern crate num_complex;
@@ -84,7 +84,7 @@ fn fang_oost_generic<'a, T, U, S>(
         m_output(result, index)
     }).collect()
 }
-///Returns call prices for the series of strikes
+/// Returns call prices for the series of strikes
 /// # Examples
 /// 
 /// ```
@@ -130,7 +130,7 @@ pub fn fang_oost_call_price<'a, S>(
     )
 }
 
-///Returns put prices for the series of strikes
+/// Returns put prices for the series of strikes
 /// # Examples
 /// 
 /// ```
@@ -175,7 +175,7 @@ pub fn fang_oost_put_price<'a, S>(
         cf
     )
 }
-///Returns delta of a call for the series of strikes
+/// Returns delta of a call for the series of strikes
 /// # Examples
 /// 
 /// ```
@@ -220,7 +220,7 @@ pub fn fang_oost_call_delta<'a, S>(
         cf
     )
 }
-///Returns delta of a put for the series of strikes
+/// Returns delta of a put for the series of strikes
 /// # Examples
 /// 
 /// ```
@@ -265,7 +265,7 @@ pub fn fang_oost_put_delta<'a, S>(
         cf
     )
 }
-///Returns theta of a call for the series of strikes
+/// Returns theta of a call for the series of strikes
 /// 
 /// # Remarks
 /// 
@@ -317,7 +317,7 @@ pub fn fang_oost_call_theta<'a, S>(
         cf
     )
 }
-///Returns theta of a put for the series of strikes
+/// Returns theta of a put for the series of strikes
 /// 
 /// # Remarks
 /// 
@@ -369,7 +369,7 @@ pub fn fang_oost_put_theta<'a, S>(
         cf
     )
 }
-///Returns gamma of a call for the series of strikes
+/// Returns gamma of a call for the series of strikes
 /// 
 /// # Examples
 /// 
@@ -416,7 +416,7 @@ pub fn fang_oost_call_gamma<'a, S>(
     )
 }
 
-///Returns gamma of a put for the series of strikes
+/// Returns gamma of a put for the series of strikes
 /// 
 /// # Remarks
 /// The gamma of a put is the same as the gamma of call.

@@ -1,3 +1,17 @@
+//! Solves the inverse problem: find the parameters which most closely
+//! appoximate the option prices available in the market.  Requires 
+//! specification of a characeteristic function. Some useful 
+//! characteristic functions are provided in the 
+//! [cf_functions](https://crates.io/crates/cf_functions) repository.
+//! This module works by fitting a monotonic spline to transformed
+//! option data from the market.  Then the empirical characteristic
+//! function is estimated from the spline.  A mean squared optimization
+//! problem is then solved in complex space between the analytical
+//! characteristic function and the empirical characteristic function.
+//! For more documentation and results, see [fang_oost_cal_charts](https://github.com/phillyfan1138/fang_oost_cal_charts).  Currently this
+//! module only works on a single maturity at atime.  It does not 
+//! calibrate across all maturities simultanously.  
+//! 
 extern crate num;
 extern crate num_complex;
 extern crate rayon;
@@ -18,6 +32,24 @@ pub fn max_zero_or_number(num:f64)->f64{
 fn get_dx(n:usize, x_min:f64, x_max:f64)->f64{
     (x_max-x_min)/(n as f64-1.0)
 }
+
+fn simpson_integrand(
+    index: usize,
+    n: usize
+)->f64{
+    if index == 0 || index == (n-1) {
+        1.0
+    }
+    else {
+        if index % 2 == 0 {
+            2.0
+        }
+        else {
+            4.0
+        }
+    }
+}
+
 fn dft<'a, 'b: 'a>(
     u_array:&'b [f64],
     x_min:f64,
@@ -33,15 +65,7 @@ fn dft<'a, 'b: 'a>(
         (
             *u, 
             (0..n).fold(cmp, |accum, index|{
-                let simpson=if index==0||index==(n-1) { 
-                    1.0
-                } else { 
-                    if index%2==0 {
-                        2.0
-                    } else {
-                        4.0
-                    } 
-                };
+                let simpson=simpson_integrand(index, n);
                 let x=x_min+dx*(index as f64);
                 accum+(cmp_i*u*x).exp()*fn_to_invert(x, index)*simpson*dx/3.0
             })
@@ -51,8 +75,35 @@ fn dft<'a, 'b: 'a>(
 
 
 const NORMALIZED_STRIKE_THRESHOLD:f64=1.0;
+
+/// Returns scaled prices
+///
+/// # Examples
+///
+/// ```
+/// extern crate fang_oost_option;
+/// use fang_oost_option::option_calibration;
+/// # fn main() {
+/// let p = 5.0; //option price or strike
+/// let v = 50.0; //asset price
+/// let t_p = option_calibration::transform_price(p, v);
+/// # }
+/// ```
 pub fn transform_price(p:f64, v:f64)->f64{p/v}
 
+/// Returns transformed strikes.  Used to transform the option prices for spline fitting.
+///
+/// # Examples
+///
+/// ```
+/// extern crate fang_oost_option;
+/// use fang_oost_option::option_calibration;
+/// # fn main() {
+/// let normalized_strike = 0.5; 
+/// let discount = 0.99; //discount factor
+/// let adjustment = option_calibration::adjust_domain(normalized_strike, discount);
+/// # }
+/// ```
 pub fn adjust_domain(normalized_strike:f64, discount:f64)->f64{
     max_zero_or_number(
         NORMALIZED_STRIKE_THRESHOLD-normalized_strike*discount
@@ -90,6 +141,36 @@ fn transform_prices(
 }
 fn threshold_condition(strike:f64, threshold:f64)->bool{strike<=threshold}
 
+/// Returns spline function
+///
+/// # Examples
+///
+/// ```
+/// extern crate fang_oost_option;
+/// use fang_oost_option::option_calibration;
+/// # fn main() {
+/// //vector of tuple of (strike, option)
+/// let strikes_and_options = vec![
+///     (30.0, 22.0), 
+///     (50.0, 4.0), 
+///     (60.0, 0.5)
+/// ]; 
+/// let stock = 50.0;
+/// let min_strike = 0.3;
+/// let max_strike = 3000.0;
+/// let discount = 0.99; //discount factor
+/// let spline = option_calibration::get_option_spline(
+///     &strikes_and_options,
+///     stock, 
+///     discount,
+///     min_strike,
+///     max_strike
+/// );
+/// let estimated_transformed_strike_high = spline(1.2);
+/// let estimated_transformed_strike_low = spline(0.8);
+/// let estimated_transformed_strike_at_the_money = spline(1.0);
+/// # }
+/// ```
 pub fn get_option_spline<'a>(
     strikes_and_option_prices:&[(f64, f64)],
     stock:f64,
@@ -149,7 +230,36 @@ pub fn get_option_spline<'a>(
     }
 }
 
-
+/// Returns function which takes a series of values and 
+/// returns the estimated empirical characteristic function at 
+/// those values.
+///
+/// # Examples
+///
+/// ```
+/// extern crate fang_oost_option;
+/// use fang_oost_option::option_calibration;
+/// # fn main() {
+/// let strikes_and_options = vec![(30.0, 22.0), (50.0, 4.0), (60.0, 0.5)]; //vector of tuple of (strike, option)
+/// let stock = 50.0;
+/// let rate = 0.05;
+/// let maturity = 0.8;
+/// let min_strike = 0.3;
+/// let max_strike = 3000.0;
+/// let cf_estimate = option_calibration::generate_fo_estimate(
+///     &strikes_and_options,
+///     stock, 
+///     rate,
+///     maturity,
+///     min_strike,
+///     max_strike
+/// );
+/// let estimated_cf = cf_estimate(
+///     128, //number of discrete steps to estimate for each u
+///     &vec![-1.0, 0.5, 3.0]
+/// );
+/// # }
+/// ```
 pub fn generate_fo_estimate(
     strikes_and_option_prices:&[(f64, f64)],
     stock:f64,
@@ -183,6 +293,45 @@ pub fn generate_fo_estimate(
     }
 }
 const LARGE_NUMBER:f64=500000.0;
+
+
+/// Returns function which computes the mean squared error 
+/// between the empirical and analytical characteristic 
+/// functions for a vector of parameters.
+///
+/// # Examples
+///
+/// ```
+/// extern crate num_complex;
+/// use num_complex::Complex;
+/// extern crate fang_oost_option;
+/// use fang_oost_option::option_calibration;
+/// # fn main() {
+/// //u_array is the values in the complex domain to 
+/// //calibrate to (ie, making cf(u_i) and cf_emp(u_i) 
+/// //close in mean-square).
+/// let u_array = vec![ 
+///     -1.0,
+///     0.5,
+///     3.0
+/// ];
+/// //same length as u (computed using generate_fo_estimate function)
+/// let phi_hat = vec![
+///     Complex::new(-1.0, 1.0),
+///     Complex::new(0.5, 0.5), 
+///     Complex::new(3.0, 1.0)    
+/// ];
+/// //Gaussian (0, params[0]) distribution
+/// let cf = |u: &Complex<f64>, params:&[f64]| (u*u*0.5*params[0].powi(2)).exp(); 
+/// 
+/// let estimated_cf = option_calibration::get_obj_fn_arr(
+///     phi_hat,
+///     u_array,
+///     cf
+/// );
+/// let mean_square_error = estimated_cf(&vec![0.2]);
+/// # }
+/// ```
 pub fn get_obj_fn_arr<'a, T>(
     phi_hat:Vec<Complex<f64>>, //do we really want to borrow/move this??
     u_array:Vec<f64>,
@@ -192,13 +341,15 @@ where T:Fn(&Complex<f64>, &[f64])->Complex<f64>
 {
     move |params|{
         let num_arr=u_array.len();
-        u_array.iter().enumerate().fold(0.0, |accumulate, (index, u)|{
+        u_array.iter()
+            .zip(phi_hat.iter())
+            .fold(0.0, |accumulate, (u, phi)|{
             let result=cf_fn(&Complex::new(1.0, *u), params);
             accumulate+if result.re.is_nan()||result.im.is_nan() {
                 LARGE_NUMBER
             }
             else {
-                (phi_hat[index]-result).norm_sqr()
+                (phi-result).norm_sqr()
             }            
         })/(num_arr as f64)
     }

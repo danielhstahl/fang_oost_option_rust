@@ -1,13 +1,16 @@
-//! Fang Oosterlee Approach for an option. Fang Oosterlee's approach 
-//! works well for a smaller set of discrete strike prices such as 
-//! those in the market.  The constraint is that the smallest and 
-//! largest values in the x domain must be relatively far from the 
-//! middle values.  This can be "simulated" by adding small and large 
-//! "K" synthetically.  Due to the fact that Fang Oosterlee is able to 
-//! handle this well, the algorithm takes a vector of strike prices with 
-//! no requirement that the strike prices be equidistant.  All that is 
-//! required is that they are sorted largest to smallest. 
-//! http://ta.twi.tudelft.nl/mf/users/oosterle/oosterlee/COS.pdf
+//! Fang Oosterlee approach for an option using the underlying's 
+//! characteristic function. Some useful characteristic functions
+//! are provided in the [cf_functions](https://crates.io/crates/cf_functions) repository.
+//! Fang and Oosterlee's approach works well for a smaller set of 
+//! discrete strike prices such as those in the market.  The 
+//! constraint is that the smallest and largest values in the x 
+//! domain must be relatively far from the middle values.  This 
+//! can be "simulated" by adding small and large strikes 
+//! synthetically.  Due to the fact that Fang Oosterlee is able to 
+//! handle discrete strikes well, the algorithm takes a vector of 
+//! strike prices with no requirement that the strike prices be 
+//! equidistant.  All that is required is that they are sorted largest 
+//! to smallest. http://ta.twi.tudelft.nl/mf/users/oosterle/oosterlee/COS.pdf
 //! 
 extern crate num;
 extern crate num_complex;

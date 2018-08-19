@@ -1,3 +1,14 @@
+//! Fang Oosterlee Approach for an option. Fang Oosterlee's approach 
+//! works well for a smaller set of discrete strike prices such as 
+//! those in the market.  The constraint is that the smallest and 
+//! largest values in the x domain must be relatively far from the 
+//! middle values.  This can be "simulated" by adding small and large 
+//! "K" synthetically.  Due to the fact that Fang Oosterlee is able to 
+//! handle this well, the algorithm takes a vector of strike prices with 
+//! no requirement that the strike prices be equidistant.  All that is 
+//! required is that they are sorted largest to smallest. 
+//! http://ta.twi.tudelft.nl/mf/users/oosterle/oosterlee/COS.pdf
+//! 
 extern crate num;
 extern crate num_complex;
 extern crate rayon;
@@ -49,32 +60,6 @@ fn option_theta_transform(cf:&Complex<f64>, rate:f64)->Complex<f64>{
     if cf.re>0.0 { -(cf.ln()-rate)*cf} else {Complex::new(0.0, 0.0)}
 }
 
-
-/**
-    Fang Oosterlee Approach for an option using Put as the main payoff 
-    (better accuracy than a call...use put call parity to get back put).
-    Note that Fang Oosterlee's approach works well for a smaller 
-    of discrete strike prices such as those in the market.  The 
-    constraint is that the smallest and largest values in the x domain
-    must be relatively far from the middle values.  This can be 
-    "simulated" by adding small and large "K" synthetically.  Due to
-    the fact that Fang Oosterlee is able to handle this well, the 
-    function takes a vector of strike prices with no requirement that
-    the strike prices be equidistant.  All that is required is that
-    they are sorted largest to smallest.
-    returns in log domain
-    http://ta.twi.tudelft.nl/mf/users/oosterle/oosterlee/COS.pdf
-    @num_u number of steps in the complex domain (independent 
-    of number of x steps)
-    @x_values x values derived from strikes
-    @enh_cf function of Fn CF and complex U which transforms 
-    the CF into the appropriate derivative (eg, for delta or gamma)
-    @m_output a function which determines whether the output is a 
-    call or a put.  
-    @cf characteristic function of log x around the strike
-    @returns vector of prices corresponding with the strikes 
-    provided by FangOostCall or FangOostPut
-*/
 fn fang_oost_generic<'a, T, U, S>(
     num_u:usize, 
     x_values:&'a [f64],
@@ -96,7 +81,31 @@ fn fang_oost_generic<'a, T, U, S>(
         m_output(result, index)
     }).collect()
 }
-
+///Returns call prices for the series of strikes
+/// # Examples
+/// 
+/// ```
+/// extern crate num_complex;
+/// use num_complex::Complex;
+/// extern crate fang_oost_option;
+/// use fang_oost_option::option_pricing;
+/// # fn main() {
+/// let num_u:usize = 256;
+/// let asset = 50.0;
+/// let strikes = vec![5000.0, 75.0, 50.0, 40.0, 0.03];
+/// let rate = 0.03;
+/// let t_maturity = 0.5;
+/// let volatility:f64 = 0.3; 
+/// //As an example, cf is standard diffusion
+/// let cf = |u: &Complex<f64>| {
+///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
+/// };
+/// let prices = option_pricing::fang_oost_call_price(
+///     num_u, asset, &strikes, 
+///     rate, t_maturity, &cf
+/// );
+/// # }
+/// ```
 pub fn fang_oost_call_price<'a, S>(
     num_u:usize,
     asset:f64,

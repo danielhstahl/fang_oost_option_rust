@@ -83,7 +83,6 @@ fn fang_oost_generic<'a, T, U, S>(
 {
     let x_min=get_x_from_k(asset, *strikes.first().unwrap());
     let x_max=get_x_from_k(asset, *strikes.last().unwrap());
-    //let x_values_iterator=
     let discrete_cf=fang_oost::get_discrete_cf(
         num_u, x_min, x_max, 
         |u| enh_cf(&cf(u), u)
@@ -181,7 +180,6 @@ pub fn fang_oost_put_price<'a, S>(
     where S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send
 {
     let discount=(-rate*t_maturity).exp();
-    //let t_strikes:Vec<f64>=get_x_from_k(asset, &strikes);
     fang_oost_generic(
         num_u,
         asset, 
@@ -227,7 +225,6 @@ pub fn fang_oost_call_delta<'a, S>(
     where S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send
 {
     let discount=(-rate*t_maturity).exp();
-    //let t_strikes:Vec<f64>=get_x_from_k(asset, &strikes);
     fang_oost_generic(
         num_u, 
         asset, 
@@ -273,7 +270,6 @@ pub fn fang_oost_put_delta<'a, S>(
     where S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send
 {
     let discount=(-rate*t_maturity).exp();
-    //let t_strikes:Vec<f64>=get_x_from_k(asset, &strikes);
     fang_oost_generic(
         num_u, 
         asset, 
@@ -326,7 +322,6 @@ pub fn fang_oost_call_theta<'a, S>(
     where S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send
 {
     let discount=(-rate*t_maturity).exp();
-    //let t_strikes:Vec<f64>=get_x_from_k(asset, &strikes);
     fang_oost_generic(
         num_u, 
         asset, 
@@ -379,7 +374,6 @@ pub fn fang_oost_put_theta<'a, S>(
     where S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send
 {
     let discount=(-rate*t_maturity).exp();
-    //let t_strikes:Vec<f64>=get_x_from_k(asset, &strikes);
     fang_oost_generic(
         num_u, 
         asset, 
@@ -426,7 +420,6 @@ pub fn fang_oost_call_gamma<'a, S>(
     where S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send
 {
     let discount=(-rate*t_maturity).exp();
-    //let t_strikes:Vec<f64>=get_x_from_k(asset, &strikes);
     fang_oost_generic(
         num_u, 
         asset, 

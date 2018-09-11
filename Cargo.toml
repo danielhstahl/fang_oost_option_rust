@@ -12,7 +12,7 @@ description = "A library implementing Fang and Oosterlee's algorithm for option 
 num = "0.2"
 rayon = "1.0.1"
 num-complex = "0.2"
-fang_oost = "0.7.0"
+fang_oost = "0.13.7"
 
 [dev-dependencies]
 approx = "0.2.0"

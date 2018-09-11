@@ -12,6 +12,11 @@
 //! equidistant.  All that is required is that they are sorted largest 
 //! to smallest. [Link to Fang-Oosterlee paper](http://ta.twi.tudelft.nl/mf/users/oosterle/oosterlee/COS.pdf).
 //! 
+
+
+extern crate test;
+
+
 extern crate num;
 extern crate num_complex;
 extern crate rayon;
@@ -25,6 +30,9 @@ extern crate cf_functions;
 use self::num_complex::Complex;
 use self::rayon::prelude::*;
 use std;
+
+
+
 
 
 /**For Fang Oost (defined in the paper)*/
@@ -477,6 +485,7 @@ pub fn fang_oost_put_gamma<'a, S>(
 #[cfg(test)]
 mod tests {
     use option_pricing::*;
+    use self::test::Bencher;
     use std::time::{ Instant};
     fn get_fang_oost_k_at_index(
         x_min:f64,
@@ -525,6 +534,23 @@ mod tests {
             );
         }
         
+    }
+    #[bench]
+    fn benchmark_algorithm(b: &mut Bencher){
+        let r=0.05;
+        let sig=0.3;
+        let t=1.0;
+        let asset=50.0;
+        let bs_cf=|u:&Complex<f64>| ((r-sig*sig*0.5)*t*u+sig*sig*t*u*u*0.5).exp();
+        let x_max=5.0;
+        let num_x=(2 as usize).pow(10);
+        let num_u=64;
+        let k_array=get_fang_oost_strike(-x_max, x_max, asset, num_x);
+        b.iter(||{
+            //(0..1000).map(|_|{
+            fang_oost_call_price(num_u, asset, &k_array, r, t, bs_cf)
+            //});
+        });
     }
     #[test]
     fn test_fang_oost_call_price_with_merton(){

@@ -1,3 +1,4 @@
+#![feature(test)]
 #[macro_use]
 #[cfg(test)]
 extern crate approx;

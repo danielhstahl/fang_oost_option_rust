@@ -14,3 +14,5 @@ Implements Fang-Oosterlee option pricing in Rust
 # Speed
 
 The benchmarks are comparable to my C++ implementation.  The tests ran in 8 to 50 milliseconds in rust compared to 17-49 milliseconds in C++.  To run the tests with benchmarking, use `cargo test --release -- --nocapture`.
+
+To run raw benchmark, checkout the `benchmark` branch and run `cargo bench`.  Note that this only works with nightly (switch using `rustup default nightly`).

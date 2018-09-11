@@ -17,7 +17,6 @@ extern crate num;
 extern crate num_complex;
 extern crate rayon;
 extern crate fang_oost;
-extern crate test;
 #[cfg(test)]
 extern crate black_scholes;
 #[cfg(test)]

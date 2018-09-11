@@ -100,7 +100,7 @@ fn fang_oost_generic<'a, T, U, S>(
         x_max,
         get_x_from_k_iterator(asset, strikes), 
         &discrete_cf,
-        move |u, _, k|phi_k(x_min, x_min, 0.0, u.im, k)-chi_k(x_min, x_min, 0.0, u.im)
+        move |u, _, k|phi_k(x_min, x_min, 0.0, u, k)-chi_k(x_min, x_min, 0.0, u)
     ).enumerate().map(|(index, result)|{
         m_output(result, index)
     }).collect();
@@ -547,9 +547,7 @@ mod tests {
         let num_u=64;
         let k_array=get_fang_oost_strike(-x_max, x_max, asset, num_x);
         b.iter(||{
-            //(0..1000).map(|_|{
             fang_oost_call_price(num_u, asset, &k_array, r, t, bs_cf)
-            //});
         });
     }
     #[test]

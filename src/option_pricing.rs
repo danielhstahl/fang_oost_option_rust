@@ -1,8 +1,22 @@
+//! Fang Oosterlee approach for an option using the underlying's 
+//! characteristic function. Some useful characteristic functions
+//! are provided in the [cf_functions](https://crates.io/crates/cf_functions) repository.
+//! Fang and Oosterlee's approach works well for a smaller set of 
+//! discrete strike prices such as those in the market.  The 
+//! constraint is that the smallest and largest values in the x 
+//! domain must be relatively far from the middle values.  This 
+//! can be "simulated" by adding small and large strikes 
+//! synthetically.  Due to the fact that Fang Oosterlee is able to 
+//! handle discrete strikes well, the algorithm takes a vector of 
+//! strike prices with no requirement that the strike prices be 
+//! equidistant.  All that is required is that they are sorted largest 
+//! to smallest. [Link to Fang-Oosterlee paper](http://ta.twi.tudelft.nl/mf/users/oosterle/oosterlee/COS.pdf).
+//! 
+
 extern crate num;
 extern crate num_complex;
 extern crate rayon;
 extern crate fang_oost;
-
 #[cfg(test)]
 extern crate black_scholes;
 #[cfg(test)]
@@ -11,6 +25,9 @@ extern crate cf_functions;
 use self::num_complex::Complex;
 use self::rayon::prelude::*;
 use std;
+
+
+
 
 
 /**For Fang Oost (defined in the paper)*/
@@ -26,11 +43,17 @@ fn phi_k(a:f64, c:f64, d:f64, u:f64, k:usize)->f64{
     if k==0 {d-c} else{(iter_s(d).sin()-iter_s(c).sin())/u}
 }
 
+fn get_x_from_k(asset:f64, strike:f64)->f64{
+    (asset/strike).ln()
+}
 /**This function takes strikes and converts them
 into a vector in the x domain.  Intriguinely, I 
 don't have to sort the result...*/
-fn get_x_from_k(asset:f64, strikes:&[f64])->Vec<f64>{
-    strikes.iter().map(|strike|(asset/strike).ln()).collect()
+fn get_x_from_k_iterator<'a, 'b:'a>(
+    asset:f64, 
+    strikes:&'b [f64]
+)->impl IndexedParallelIterator<Item = f64>+'a{
+    strikes.par_iter().map(move |&strike|get_x_from_k(asset, strike))
 }
 
 fn option_price_transform(cf:&Complex<f64>)->Complex<f64>{
@@ -49,35 +72,10 @@ fn option_theta_transform(cf:&Complex<f64>, rate:f64)->Complex<f64>{
     if cf.re>0.0 { -(cf.ln()-rate)*cf} else {Complex::new(0.0, 0.0)}
 }
 
-
-/**
-    Fang Oosterlee Approach for an option using Put as the main payoff 
-    (better accuracy than a call...use put call parity to get back put).
-    Note that Fang Oosterlee's approach works well for a smaller 
-    of discrete strike prices such as those in the market.  The 
-    constraint is that the smallest and largest values in the x domain
-    must be relatively far from the middle values.  This can be 
-    "simulated" by adding small and large "K" synthetically.  Due to
-    the fact that Fang Oosterlee is able to handle this well, the 
-    function takes a vector of strike prices with no requirement that
-    the strike prices be equidistant.  All that is required is that
-    they are sorted largest to smallest.
-    returns in log domain
-    http://ta.twi.tudelft.nl/mf/users/oosterle/oosterlee/COS.pdf
-    @num_u number of steps in the complex domain (independent 
-    of number of x steps)
-    @x_values x values derived from strikes
-    @enh_cf function of Fn CF and complex U which transforms 
-    the CF into the appropriate derivative (eg, for delta or gamma)
-    @m_output a function which determines whether the output is a 
-    call or a put.  
-    @cf characteristic function of log x around the strike
-    @returns vector of prices corresponding with the strikes 
-    provided by FangOostCall or FangOostPut
-*/
 fn fang_oost_generic<'a, T, U, S>(
     num_u:usize, 
-    x_values:&'a [f64],
+    asset:f64,
+    strikes:&'a [f64],
     enh_cf:T,
     m_output:U,
     cf:S
@@ -86,17 +84,48 @@ fn fang_oost_generic<'a, T, U, S>(
     U: Fn(f64, usize)->f64+std::marker::Sync+std::marker::Send+'a,
     S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send+'a
 {
-    let x_min=*x_values.first().unwrap();
-    fang_oost::get_expectation_discrete_extended(
-        num_u,
-        x_values, 
-        |u| enh_cf(&cf(u), u),
+    let x_min=get_x_from_k(asset, *strikes.first().unwrap());
+    let x_max=get_x_from_k(asset, *strikes.last().unwrap());
+    let discrete_cf=fang_oost::get_discrete_cf(
+        num_u, x_min, x_max, 
+        |u| enh_cf(&cf(u), u)
+    );
+    let results=fang_oost::get_expectation_extended(
+        x_min,
+        x_max,
+        get_x_from_k_iterator(asset, strikes), 
+        &discrete_cf,
         move |u, _, k|phi_k(x_min, x_min, 0.0, u, k)-chi_k(x_min, x_min, 0.0, u)
     ).enumerate().map(|(index, result)|{
         m_output(result, index)
-    }).collect()
+    }).collect();
+    results
 }
-
+/// Returns call prices for the series of strikes
+/// # Examples
+/// 
+/// ```
+/// extern crate num_complex;
+/// use num_complex::Complex;
+/// extern crate fang_oost_option;
+/// use fang_oost_option::option_pricing;
+/// # fn main() {
+/// let num_u:usize = 256;
+/// let asset = 50.0;
+/// let strikes = vec![5000.0, 75.0, 50.0, 40.0, 0.03];
+/// let rate = 0.03;
+/// let t_maturity = 0.5;
+/// let volatility:f64 = 0.3; 
+/// //As an example, cf is standard diffusion
+/// let cf = |u: &Complex<f64>| {
+///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
+/// };
+/// let prices = option_pricing::fang_oost_call_price(
+///     num_u, asset, &strikes, 
+///     rate, t_maturity, &cf
+/// );
+/// # }
+/// ```
 pub fn fang_oost_call_price<'a, S>(
     num_u:usize,
     asset:f64,
@@ -108,17 +137,41 @@ pub fn fang_oost_call_price<'a, S>(
     where S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send
 {
     let discount=(-rate*t_maturity).exp();
-    let t_strikes:Vec<f64>=get_x_from_k(asset, &strikes);
     fang_oost_generic(
         num_u, 
-        &t_strikes, 
+        asset,
+        strikes, 
         |cfu, _|option_price_transform(&cfu), 
         |val, index|(val-1.0)*discount*strikes[index]+asset,
         cf
     )
 }
 
-
+/// Returns put prices for the series of strikes
+/// # Examples
+/// 
+/// ```
+/// extern crate num_complex;
+/// use num_complex::Complex;
+/// extern crate fang_oost_option;
+/// use fang_oost_option::option_pricing;
+/// # fn main() {
+/// let num_u:usize = 256;
+/// let asset = 50.0;
+/// let strikes = vec![5000.0, 75.0, 50.0, 40.0, 0.03];
+/// let rate = 0.03;
+/// let t_maturity = 0.5;
+/// let volatility:f64 = 0.3; 
+/// //As an example, cf is standard diffusion
+/// let cf = |u: &Complex<f64>| {
+///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
+/// };
+/// let prices = option_pricing::fang_oost_put_price(
+///     num_u, asset, &strikes, 
+///     rate, t_maturity, &cf
+/// );
+/// # }
+/// ```
 pub fn fang_oost_put_price<'a, S>(
     num_u:usize,
     asset:f64,
@@ -130,16 +183,40 @@ pub fn fang_oost_put_price<'a, S>(
     where S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send
 {
     let discount=(-rate*t_maturity).exp();
-    let t_strikes:Vec<f64>=get_x_from_k(asset, &strikes);
     fang_oost_generic(
-        num_u, 
-        &t_strikes, 
+        num_u,
+        asset, 
+        strikes, 
         |cfu, _|option_price_transform(&cfu), 
         |val, index|val*discount*strikes[index],
         cf
     )
 }
-
+/// Returns delta of a call for the series of strikes
+/// # Examples
+/// 
+/// ```
+/// extern crate num_complex;
+/// use num_complex::Complex;
+/// extern crate fang_oost_option;
+/// use fang_oost_option::option_pricing;
+/// # fn main() {
+/// let num_u:usize = 256;
+/// let asset = 50.0;
+/// let strikes = vec![5000.0, 75.0, 50.0, 40.0, 0.03];
+/// let rate = 0.03;
+/// let t_maturity = 0.5;
+/// let volatility:f64 = 0.3; 
+/// //As an example, cf is standard diffusion
+/// let cf = |u: &Complex<f64>| {
+///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
+/// };
+/// let deltas = option_pricing::fang_oost_call_delta(
+///     num_u, asset, &strikes, 
+///     rate, t_maturity, &cf
+/// );
+/// # }
+/// ```
 pub fn fang_oost_call_delta<'a, S>(
     num_u:usize,
     asset:f64,
@@ -151,16 +228,40 @@ pub fn fang_oost_call_delta<'a, S>(
     where S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send
 {
     let discount=(-rate*t_maturity).exp();
-    let t_strikes:Vec<f64>=get_x_from_k(asset, &strikes);
     fang_oost_generic(
         num_u, 
-        &t_strikes, 
+        asset, 
+        strikes, 
         |cfu, u|option_delta_transform(&cfu, &u), 
         |val, index|val*discount*strikes[index]/asset+1.0,
         cf
     )
 }
-
+/// Returns delta of a put for the series of strikes
+/// # Examples
+/// 
+/// ```
+/// extern crate num_complex;
+/// use num_complex::Complex;
+/// extern crate fang_oost_option;
+/// use fang_oost_option::option_pricing;
+/// # fn main() {
+/// let num_u:usize = 256;
+/// let asset = 50.0;
+/// let strikes = vec![5000.0, 75.0, 50.0, 40.0, 0.03];
+/// let rate = 0.03;
+/// let t_maturity = 0.5;
+/// let volatility:f64 = 0.3; 
+/// //As an example, cf is standard diffusion
+/// let cf = |u: &Complex<f64>| {
+///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
+/// };
+/// let deltas = option_pricing::fang_oost_put_delta(
+///     num_u, asset, &strikes, 
+///     rate, t_maturity, &cf
+/// );
+/// # }
+/// ```
 pub fn fang_oost_put_delta<'a, S>(
     num_u:usize,
     asset:f64,
@@ -172,16 +273,47 @@ pub fn fang_oost_put_delta<'a, S>(
     where S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send
 {
     let discount=(-rate*t_maturity).exp();
-    let t_strikes:Vec<f64>=get_x_from_k(asset, &strikes);
     fang_oost_generic(
         num_u, 
-        &t_strikes, 
+        asset, 
+        strikes, 
         |cfu, u|option_delta_transform(&cfu, &u), 
         |val, index|val*discount*strikes[index]/asset,
         cf
     )
 }
-
+/// Returns theta of a call for the series of strikes
+/// 
+/// # Remarks
+/// 
+/// The theta of a call will only be accurate for non-time changed
+/// Levy processes.  For a time-changed Levy process (eg, Heston's 
+/// model) the theta is not accurate.  
+/// 
+/// # Examples
+/// 
+/// ```
+/// extern crate num_complex;
+/// use num_complex::Complex;
+/// extern crate fang_oost_option;
+/// use fang_oost_option::option_pricing;
+/// # fn main() {
+/// let num_u:usize = 256;
+/// let asset = 50.0;
+/// let strikes = vec![5000.0, 75.0, 50.0, 40.0, 0.03];
+/// let rate = 0.03;
+/// let t_maturity = 0.5;
+/// let volatility:f64 = 0.3; 
+/// //As an example, cf is standard diffusion
+/// let cf = |u: &Complex<f64>| {
+///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
+/// };
+/// let deltas = option_pricing::fang_oost_call_theta(
+///     num_u, asset, &strikes, 
+///     rate, t_maturity, &cf
+/// );
+/// # }
+/// ```
 pub fn fang_oost_call_theta<'a, S>(
     num_u:usize,
     asset:f64,
@@ -193,16 +325,47 @@ pub fn fang_oost_call_theta<'a, S>(
     where S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send
 {
     let discount=(-rate*t_maturity).exp();
-    let t_strikes:Vec<f64>=get_x_from_k(asset, &strikes);
     fang_oost_generic(
         num_u, 
-        &t_strikes, 
+        asset, 
+        strikes, 
         |cfu, _|option_theta_transform(&cfu, rate), 
         |val, index|(val-rate)*discount*strikes[index],
         cf
     )
 }
-
+/// Returns theta of a put for the series of strikes
+/// 
+/// # Remarks
+/// 
+/// The theta of a call will only be accurate for non-time changed
+/// Levy processes.  For a time-changed Levy process (eg, Heston's 
+/// model) the theta is not accurate.  
+/// 
+/// # Examples
+/// 
+/// ```
+/// extern crate num_complex;
+/// use num_complex::Complex;
+/// extern crate fang_oost_option;
+/// use fang_oost_option::option_pricing;
+/// # fn main() {
+/// let num_u:usize = 256;
+/// let asset = 50.0;
+/// let strikes = vec![5000.0, 75.0, 50.0, 40.0, 0.03];
+/// let rate = 0.03;
+/// let t_maturity = 0.5;
+/// let volatility:f64 = 0.3; 
+/// //As an example, cf is standard diffusion
+/// let cf = |u: &Complex<f64>| {
+///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
+/// };
+/// let deltas = option_pricing::fang_oost_put_theta(
+///     num_u, asset, &strikes, 
+///     rate, t_maturity, &cf
+/// );
+/// # }
+/// ```
 pub fn fang_oost_put_theta<'a, S>(
     num_u:usize,
     asset:f64,
@@ -214,16 +377,41 @@ pub fn fang_oost_put_theta<'a, S>(
     where S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send
 {
     let discount=(-rate*t_maturity).exp();
-    let t_strikes:Vec<f64>=get_x_from_k(asset, &strikes);
     fang_oost_generic(
         num_u, 
-        &t_strikes, 
+        asset, 
+        strikes, 
         |cfu, _|option_theta_transform(&cfu, rate), 
         |val, index|val*discount*strikes[index],
         cf
     )
 }
-
+/// Returns gamma of a call for the series of strikes
+/// 
+/// # Examples
+/// 
+/// ```
+/// extern crate num_complex;
+/// use num_complex::Complex;
+/// extern crate fang_oost_option;
+/// use fang_oost_option::option_pricing;
+/// # fn main() {
+/// let num_u:usize = 256;
+/// let asset = 50.0;
+/// let strikes = vec![5000.0, 75.0, 50.0, 40.0, 0.03];
+/// let rate = 0.03;
+/// let t_maturity = 0.5;
+/// let volatility:f64 = 0.3; 
+/// //As an example, cf is standard diffusion
+/// let cf = |u: &Complex<f64>| {
+///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
+/// };
+/// let deltas = option_pricing::fang_oost_call_gamma(
+///     num_u, asset, &strikes, 
+///     rate, t_maturity, &cf
+/// );
+/// # }
+/// ```
 pub fn fang_oost_call_gamma<'a, S>(
     num_u:usize,
     asset:f64,
@@ -235,15 +423,47 @@ pub fn fang_oost_call_gamma<'a, S>(
     where S:Fn(&Complex<f64>)->Complex<f64>+std::marker::Sync+std::marker::Send
 {
     let discount=(-rate*t_maturity).exp();
-    let t_strikes:Vec<f64>=get_x_from_k(asset, &strikes);
     fang_oost_generic(
         num_u, 
-        &t_strikes, 
+        asset, 
+        strikes, 
         |cfu, u|option_gamma_transform(&cfu, &u), 
         |val, index|val*discount*strikes[index]/(asset*asset),
         cf
     )
 }
+
+/// Returns gamma of a put for the series of strikes
+/// 
+/// # Remarks
+/// The gamma of a put is the same as the gamma of call.
+/// This function just wraps the fang_oost_call_gamma
+/// function.
+/// 
+/// # Examples
+/// 
+/// ```
+/// extern crate num_complex;
+/// use num_complex::Complex;
+/// extern crate fang_oost_option;
+/// use fang_oost_option::option_pricing;
+/// # fn main() {
+/// let num_u:usize = 256;
+/// let asset = 50.0;
+/// let strikes = vec![5000.0, 75.0, 50.0, 40.0, 0.03];
+/// let rate = 0.03;
+/// let t_maturity = 0.5;
+/// let volatility:f64 = 0.3; 
+/// //As an example, cf is standard diffusion
+/// let cf = |u: &Complex<f64>| {
+///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
+/// };
+/// let deltas = option_pricing::fang_oost_put_gamma(
+///     num_u, asset, &strikes, 
+///     rate, t_maturity, &cf
+/// );
+/// # }
+/// ```
 pub fn fang_oost_put_gamma<'a, S>(
     num_u:usize,
     asset:f64,

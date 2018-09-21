@@ -59,17 +59,16 @@ fn dft<'a, 'b: 'a>(
     fn_to_invert:impl Fn( f64, usize)->f64+'a+std::marker::Sync+std::marker::Send
 )->impl ParallelIterator<Item = (f64, Complex<f64>) >+'a
 {
-    let cmp:Complex<f64>=Complex::new(0.0, 0.0);
     let cmp_i:Complex<f64>=Complex::new(0.0, 1.0);
     let dx=get_dx(n, x_min, x_max);
     u_array.par_iter().map(move |u|{
         (
             *u, 
-            (0..n).fold(cmp, |accum, index|{
+            (0..n).map(|index|{
                 let simpson=simpson_integrand(index, n);
                 let x=x_min+dx*(index as f64);
-                accum+(cmp_i*u*x).exp()*fn_to_invert(x, index)*simpson*dx/3.0
-            })
+                (cmp_i*u*x).exp()*fn_to_invert(x, index)*simpson*dx/3.0
+            }).sum()
         )
     })
 }
@@ -367,14 +366,14 @@ where T:Fn(&Complex<f64>, &[f64])->Complex<f64>
         u_array.iter()
             .zip(phi_hat.iter())
             .fold(0.0, |accumulate, (u, phi)|{
-            let result=cf_fn(&Complex::new(1.0, *u), params);
-            accumulate+if result.re.is_nan()||result.im.is_nan() {
-                LARGE_NUMBER
-            }
-            else {
-                (phi-result).norm_sqr()
-            }            
-        })
+                let result=cf_fn(&Complex::new(1.0, *u), params);
+                accumulate+if result.re.is_nan()||result.im.is_nan() {
+                    LARGE_NUMBER
+                }
+                else {
+                    (phi-result).norm_sqr()
+                }            
+            })
     }
 }
 

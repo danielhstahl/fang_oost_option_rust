@@ -16,6 +16,7 @@ extern crate num;
 extern crate num_complex;
 extern crate rayon;
 extern crate fang_oost;
+extern crate serde;
 
 #[cfg(test)]
 use std::f64::consts::PI;
@@ -72,7 +73,13 @@ fn dft<'a, 'b: 'a>(
         )
     })
 }
-
+#[derive(Serialize, Deserialize)]
+pub struct OptionStats{
+    pub price:f64,
+    pub strike:f64,
+    pub maturity:f64,
+    pub rate:f64
+}
 
 const NORMALIZED_STRIKE_THRESHOLD:f64=1.0;
 
@@ -111,7 +118,7 @@ pub fn adjust_domain(normalized_strike:f64, discount:f64)->f64{
 }
 
 fn transform_prices(
-    arr:&[(f64, f64)], asset:f64, 
+    arr:&[OptionStats], asset:f64, 
     min_v:&(f64, f64), max_v:&(f64, f64)
 )->Vec<(f64, f64)>{
     let mut price_t:Vec<(f64, f64)>=vec![];
@@ -124,10 +131,10 @@ fn transform_prices(
         )
     );
     price_t.append(
-        &mut arr.iter().map(|(strike, option_price)|{
+        &mut arr.iter().map(|OptionStats{strike, price, ..}|{
             (
                 transform_price(*strike, asset), 
-                transform_price(*option_price, asset)
+                transform_price(*price, asset)
             )
         }).collect()
     );
@@ -151,9 +158,15 @@ fn threshold_condition(strike:f64, threshold:f64)->bool{strike<=threshold}
 /// # fn main() {
 /// //vector of tuple of (strike, option)
 /// let strikes_and_options = vec![
-///     (30.0, 22.0), 
-///     (50.0, 4.0), 
-///     (60.0, 0.5)
+///     option_calibration::OptionStats{
+///         rate:0.05, maturity:0.8, strike:30.0, price:22.0
+///     },
+///     option_calibration::OptionStats{
+///         rate:0.05, maturity:0.8, strike:50.0, price:4.0
+///     },
+///     option_calibration::OptionStats{
+///         rate:0.05, maturity:0.8, strike:60.0, price:0.5
+///     }
 /// ]; 
 /// let stock = 50.0;
 /// let min_strike = 0.3;
@@ -172,7 +185,7 @@ fn threshold_condition(strike:f64, threshold:f64)->bool{strike<=threshold}
 /// # }
 /// ```
 pub fn get_option_spline<'a>(
-    strikes_and_option_prices:&[(f64, f64)],
+    strikes_and_option_prices:&[OptionStats],
     stock:f64,
     discount:f64,
     min_strike:f64,
@@ -230,9 +243,7 @@ pub fn get_option_spline<'a>(
     }
 }
 
-/// Returns function which takes a series of values and 
-/// returns the estimated empirical characteristic function at 
-/// those values.
+/// Returns iterator over discrete empirical characteristic function
 ///
 /// # Examples
 ///
@@ -240,35 +251,48 @@ pub fn get_option_spline<'a>(
 /// extern crate fang_oost_option;
 /// use fang_oost_option::option_calibration;
 /// # fn main() {
-/// let strikes_and_options = vec![(30.0, 22.0), (50.0, 4.0), (60.0, 0.5)]; //vector of tuple of (strike, option)
+/// let strikes_and_options = vec![
+///     option_calibration::OptionStats{
+///         rate:0.05, maturity:0.8, strike:30.0, price:22.0
+///     },
+///     option_calibration::OptionStats{
+///         rate:0.05, maturity:0.8, strike:50.0, price:4.0
+///     },
+///     option_calibration::OptionStats{
+///         rate:0.05, maturity:0.8, strike:60.0, price:0.5
+///     }
+/// ];
 /// let stock = 50.0;
 /// let rate = 0.05;
 /// let maturity = 0.8;
 /// let min_strike = 0.3;
 /// let max_strike = 3000.0;
+/// let u_array=vec![-1.0, 0.5, 3.0];
 /// let cf_estimate = option_calibration::generate_fo_estimate(
 ///     &strikes_and_options,
+///     &u_array,
+///     128,
 ///     stock, 
 ///     rate,
 ///     maturity,
 ///     min_strike,
 ///     max_strike
 /// );
-/// let estimated_cf = cf_estimate(
-///     128, //number of discrete steps to estimate for each u
-///     &vec![-1.0, 0.5, 3.0]
-/// );
 /// # }
 /// ```
-pub fn generate_fo_estimate(
-    strikes_and_option_prices:&[(f64, f64)],
+pub fn generate_fo_estimate<'a, 'b:'a>(
+    strikes_and_option_prices:&'b [OptionStats],
+    u_array:&'b [f64],
+    n:usize,
     stock:f64,
     rate:f64,
     maturity:f64,
     min_strike:f64,
     max_strike:f64
-)->impl Fn(usize, &[f64])->Vec<Complex<f64>>
+)->impl ParallelIterator<Item = Complex<f64> >+'a
 {
+    //should all have the same maturity in the slice
+    //let OptionStats{maturity,..}=strikes_and_option_prices.first().unwrap();
     let discount=(-maturity*rate).exp();
     let spline=get_option_spline(
         strikes_and_option_prices,
@@ -280,17 +304,17 @@ pub fn generate_fo_estimate(
     let cmp:Complex<f64>=Complex::new(0.0, 1.0);
     let x_min=(discount*transform_price(min_strike, stock)).ln();
     let x_max=(discount*transform_price(max_strike, stock)).ln();
-    move |n, u_array|{
-        dft(u_array, x_min, x_max, n, |x, _|{
-            let exp_x=x.exp();
-            let strike=exp_x/discount;
-            let option_price_t=spline(strike);
-            max_zero_or_number(option_price_t)
-        }).map(|(u, cf)|{
-            let front=u*cmp*(1.0+u*cmp);
-            (1.0+cf*front).ln()
-        }).collect()
-    }
+    //move |n, u_array|{
+    dft(u_array, x_min, x_max, n, move |x, _|{
+        let exp_x=x.exp();
+        let strike=exp_x/discount;
+        let option_price_t=spline(strike);
+        max_zero_or_number(option_price_t)
+    }).map(move |(u, cf)|{
+        let front=u*cmp*(1.0+u*cmp);
+        (1.0+cf*front).ln()
+    })//.collect()
+    //}
 }
 const LARGE_NUMBER:f64=500000.0;
 
@@ -340,7 +364,6 @@ pub fn get_obj_fn_arr<'a, T>(
 where T:Fn(&Complex<f64>, &[f64])->Complex<f64>
 {
     move |params|{
-        let num_arr=u_array.len();
         u_array.iter()
             .zip(phi_hat.iter())
             .fold(0.0, |accumulate, (u, phi)|{
@@ -351,7 +374,7 @@ where T:Fn(&Complex<f64>, &[f64])->Complex<f64>
             else {
                 (phi-result).norm_sqr()
             }            
-        })/(num_arr as f64)
+        })
     }
 }
 
@@ -360,7 +383,11 @@ mod tests {
     use option_calibration::*;
     #[test]
     fn test_transform_prices(){
-        let arr=vec![(3.0, 3.0), (4.0, 4.0), (5.0, 5.0)];
+        let arr=vec![
+            OptionStats{maturity:1.0, rate:0.04, price:3.0, strike:3.0}, 
+            OptionStats{maturity:1.0, rate:0.04, price:4.0, strike:4.0}, 
+            OptionStats{maturity:1.0, rate:0.04, price:5.0, strike:5.0} 
+        ];
         let asset=4.0;
         let min_v=(2.0, 2.0);
         let max_v=(6.0, 6.0);
@@ -383,27 +410,27 @@ mod tests {
             u_arr,
             cf
         );
-        let expected=9.0;//3*3^2/3
+        let expected=27.0;//3*3^2
         let tmp:f64=0.0;
         assert_eq!(hoc(&[tmp]), expected);
     }
     #[test]
     fn test_option_spline(){
-        let tmp_strikes_and_option_prices:Vec<(f64, f64)>=vec![
-            (95.0, 85.0), 
-            (130.0, 51.5), 
-            (150.0, 35.38), 
-            (160.0, 28.3), 
-            (165.0, 25.2), 
-            (170.0, 22.27), 
-            (175.0, 19.45), 
-            (185.0, 14.77), 
-            (190.0, 12.75), 
-            (195.0, 11.0), 
-            (200.0, 9.35), 
-            (210.0, 6.9), 
-            (240.0, 2.55), 
-            (250.0, 1.88)
+        let tmp_strikes_and_option_prices:Vec<OptionStats>=vec![
+            OptionStats{maturity:1.0, rate:0.04, strike:95.0, price:85.0}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:130.0, price:51.5}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:150.0, price:35.38}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:160.0, price:28.3}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:165.0, price:25.2}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:170.0, price:22.27}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:175.0, price:19.45}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:185.0, price:14.77}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:190.0, price:12.75}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:195.0, price:11.0}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:200.0, price:9.35}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:210.0, price:6.9}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:240.0, price:2.55}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:250.0, price:1.88}
         ];
         let maturity:f64=1.0;
         let rate=0.05;
@@ -418,21 +445,21 @@ mod tests {
     }
     #[test]
     fn test_option_spline_at_many_values(){
-        let tmp_strikes_and_option_prices:Vec<(f64, f64)>=vec![
-            (95.0, 85.0), 
-            (130.0, 51.5), 
-            (150.0, 35.38), 
-            (160.0, 28.3), 
-            (165.0, 25.2), 
-            (170.0, 22.27), 
-            (175.0, 19.45), 
-            (185.0, 14.77), 
-            (190.0, 12.75), 
-            (195.0, 11.0), 
-            (200.0, 9.35), 
-            (210.0, 6.9), 
-            (240.0, 2.55), 
-            (250.0, 1.88)
+        let tmp_strikes_and_option_prices:Vec<OptionStats>=vec![
+            OptionStats{maturity:1.0, rate:0.04, strike:95.0, price:85.0}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:130.0, price:51.5}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:150.0, price:35.38}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:160.0, price:28.3}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:165.0, price:25.2}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:170.0, price:22.27}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:175.0, price:19.45}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:185.0, price:14.77}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:190.0, price:12.75}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:195.0, price:11.0}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:200.0, price:9.35}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:210.0, price:6.9}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:240.0, price:2.55}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:250.0, price:1.88}
         ];
         let maturity:f64=1.0;
         let rate=0.05;
@@ -446,80 +473,83 @@ mod tests {
         test_vec.iter().for_each(|v|{
             let _sp_result=spline(v/asset); //will panic if doesnt work
         });
-        tmp_strikes_and_option_prices.iter().for_each(|(strike, price)|{
+        tmp_strikes_and_option_prices.iter().for_each(|OptionStats{strike, price, ..}|{
             let sp_result=spline(strike/asset);
             assert_abs_diff_eq!(sp_result, price/asset-max_zero_or_number(1.0-(strike/asset)*discount), epsilon=0.0000001);
         });
     }
     #[test]
     fn test_generate_fo_runs(){
-        let tmp_strikes_and_option_prices:Vec<(f64, f64)>=vec![
-            (95.0, 85.0), 
-            (130.0, 51.5), 
-            (150.0, 35.38), 
-            (160.0, 28.3), 
-            (165.0, 25.2), 
-            (170.0, 22.27), 
-            (175.0, 19.45), 
-            (185.0, 14.77), 
-            (190.0, 12.75), 
-            (195.0, 11.0), 
-            (200.0, 9.35), 
-            (210.0, 6.9), 
-            (240.0, 2.55), 
-            (250.0, 1.88)
+        let tmp_strikes_and_option_prices:Vec<OptionStats>=vec![
+            OptionStats{maturity:1.0, rate:0.04, strike:95.0, price:85.0}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:130.0, price:51.5}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:150.0, price:35.38}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:160.0, price:28.3}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:165.0, price:25.2}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:170.0, price:22.27}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:175.0, price:19.45}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:185.0, price:14.77}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:190.0, price:12.75}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:195.0, price:11.0}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:200.0, price:9.35}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:210.0, price:6.9}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:240.0, price:2.55}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:250.0, price:1.88}
         ];
         let maturity:f64=1.0;
         let rate=0.05;
         let asset=178.46;
-        let hoc_fn=generate_fo_estimate(
+        let n:usize=15;
+        let du= 2.0*PI/(n as f64);
+        let u_array:Vec<f64>=(1..n).map(|index|index as f64*du).collect();
+        let _result=generate_fo_estimate(
             &tmp_strikes_and_option_prices, 
+            &u_array,
+            n, 
             asset, rate, 
             maturity, 
             0.01, 
             5000.0
         );
-        let n:usize=15;
-        let du= 2.0*PI/(n as f64);
-        let u_array:Vec<f64>=(1..n).map(|index|index as f64*du).collect();
-        let _result=hoc_fn(1024, &u_array);
+        //let _result=hoc_fn(1024, &u_array);
         
     }
     #[test]
     fn test_generate_fo_accuracy(){
-        let tmp_strikes_and_option_prices:Vec<(f64, f64)>=vec![
-            (95.0, 85.0), 
-            (130.0, 51.5), 
-            (150.0, 35.38), 
-            (160.0, 28.3), 
-            (165.0, 25.2), 
-            (170.0, 22.27), 
-            (175.0, 19.45), 
-            (185.0, 14.77), 
-            (190.0, 12.75), 
-            (195.0, 11.0), 
-            (200.0, 9.35), 
-            (210.0, 6.9), 
-            (240.0, 2.55), 
-            (250.0, 1.88)
+        let tmp_strikes_and_option_prices:Vec<OptionStats>=vec![
+            OptionStats{maturity:1.0, rate:0.04, strike:95.0, price:85.0}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:130.0, price:51.5}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:150.0, price:35.38}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:160.0, price:28.3}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:165.0, price:25.2}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:170.0, price:22.27}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:175.0, price:19.45}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:185.0, price:14.77}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:190.0, price:12.75}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:195.0, price:11.0}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:200.0, price:9.35}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:210.0, price:6.9}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:240.0, price:2.55}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:250.0, price:1.88}
         ];
         let maturity:f64=1.0;
         let rate=0.05;
         let asset=178.46;
-        let hoc_fn=generate_fo_estimate(
+        let n:usize=15;
+        let du= 2.0*PI/(n as f64);
+        let u_array:Vec<f64>=(1..n).map(|index|index as f64*du).collect();
+        generate_fo_estimate(
             &tmp_strikes_and_option_prices, 
+            &u_array,
+            n,
             asset, rate, 
             maturity, 
             0.01, 
             5000.0
-        );
-        let n:usize=15;
-        let du= 2.0*PI/(n as f64);
-        let u_array:Vec<f64>=(1..n).map(|index|index as f64*du).collect();
-        let result=hoc_fn(1024, &u_array);
-        for v in result.iter(){
+        ).for_each(|v|{
             println!("this is v: {}", v);
-        }
+        });
+        
     }
     #[test]
     fn test_dft(){
@@ -534,21 +564,21 @@ mod tests {
     }
     #[test]
     fn test_monotone_spline(){
-        let tmp_strikes_and_option_prices:Vec<(f64, f64)>=vec![
-            (95.0, 85.0), 
-            (130.0, 51.5), 
-            (150.0, 35.38), 
-            (160.0, 28.3), 
-            (165.0, 25.2), 
-            (170.0, 22.27), 
-            (175.0, 19.45), 
-            (185.0, 14.77), 
-            (190.0, 12.75), 
-            (195.0, 11.0), 
-            (200.0, 9.35), 
-            (210.0, 6.9), 
-            (240.0, 2.55), 
-            (250.0, 1.88)
+        let tmp_strikes_and_option_prices:Vec<OptionStats>=vec![
+            OptionStats{maturity:1.0, rate:0.04, strike:95.0, price:85.0}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:130.0, price:51.5}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:150.0, price:35.38}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:160.0, price:28.3}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:165.0, price:25.2}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:170.0, price:22.27}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:175.0, price:19.45}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:185.0, price:14.77}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:190.0, price:12.75}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:195.0, price:11.0}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:200.0, price:9.35}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:210.0, price:6.9}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:240.0, price:2.55}, 
+            OptionStats{maturity:1.0, rate:0.04, strike:250.0, price:1.88}
         ];
         let maturity:f64=1.0;
         let rate=0.05;

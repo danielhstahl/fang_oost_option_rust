@@ -210,7 +210,10 @@ pub fn get_option_spline<'a>(
     let (threshold, _)=threshold_t;
     right.push(threshold_t);
 
-    let left_transform:Vec<(f64, f64)>=left
+    //let left_transform:Vec<(f64, f64)>=
+    //this whole mess is because I want to keep there from being
+    //odd jumps in the left side of the spline.
+    let mut l_iterator=left
         .into_iter()
         .rev()
         .map(|(normalized_strike, normalized_price)|{
@@ -218,7 +221,21 @@ pub fn get_option_spline<'a>(
                 normalized_strike, 
                 normalized_price-adjust_domain(normalized_strike, discount)
             )
-        }).collect();
+        }).peekable();
+    let mut left_transform:Vec<(f64, f64)>=vec![];
+    while l_iterator.peek()!=None {
+        let (strike, curr)=l_iterator.next().unwrap();
+        if l_iterator.peek()==None{
+            left_transform.push((strike, curr));
+        }
+        else {
+            let (_, next)=l_iterator.peek().unwrap();
+            if next>&curr || curr<=0.0 { 
+                left_transform.push((strike, curr));
+            }
+        }
+        
+    }       
 
     let right_transform:Vec<(f64, f64)>=right
         .into_iter()
@@ -348,18 +365,17 @@ const LARGE_NUMBER:f64=500000.0;
 ///     &u_array,
 ///     &params,
 ///     maturity,
-///     cf
+///     &cf
 /// );
 /// # }
 /// ```
-pub fn obj_fn_arr<'a, T>(
+pub fn obj_fn_arr<'a>(
     phi_hat:&[Complex<f64>], //do we really want to borrow/move this??
     u_array:&[f64],
     params:&[f64],
     maturity:f64,
-    cf_fn:T
+    cf_fn:&Fn(&Complex<f64>, f64, &[f64])->Complex<f64>
 )->f64
-where T:Fn(&Complex<f64>, f64, &[f64])->Complex<f64>
 {
     u_array.iter()
         .zip(phi_hat.iter())
@@ -407,7 +423,7 @@ mod tests {
             &u_arr,
             &params,
             1.0,
-            cf
+            &cf
         );
         let expected=27.0;//3*3^2
         assert_eq!(result, expected);

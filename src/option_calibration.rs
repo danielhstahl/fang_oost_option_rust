@@ -341,36 +341,38 @@ const LARGE_NUMBER:f64=500000.0;
 ///     Complex::new(3.0, 1.0)    
 /// ];
 /// //Gaussian (0, params[0]) distribution
-/// let cf = |u: &Complex<f64>, params:&[f64]| (u*u*0.5*params[0].powi(2)).exp(); 
-/// 
-/// let estimated_cf = option_calibration::get_obj_fn_arr(
-///     phi_hat,
-///     u_array,
+/// let cf = |u: &Complex<f64>, maturity:f64, params:&[f64]| (u*u*0.5*params[0].powi(2)).exp(); 
+/// let params=vec![0.0];
+/// let maturity=1.0;
+/// let mean_square_error = option_calibration::obj_fn_arr(
+///     &phi_hat,
+///     &u_array,
+///     &params,
+///     maturity,
 ///     cf
 /// );
-/// let mean_square_error = estimated_cf(&vec![0.2]);
 /// # }
 /// ```
-pub fn get_obj_fn_arr<'a, T>(
-    phi_hat:Vec<Complex<f64>>, //do we really want to borrow/move this??
-    u_array:Vec<f64>,
+pub fn obj_fn_arr<'a, T>(
+    phi_hat:&[Complex<f64>], //do we really want to borrow/move this??
+    u_array:&[f64],
+    params:&[f64],
+    maturity:f64,
     cf_fn:T
-)->impl Fn(&[f64])->f64
-where T:Fn(&Complex<f64>, &[f64])->Complex<f64>
+)->f64
+where T:Fn(&Complex<f64>, f64, &[f64])->Complex<f64>
 {
-    move |params|{
-        u_array.iter()
-            .zip(phi_hat.iter())
-            .fold(0.0, |accumulate, (u, phi)|{
-                let result=cf_fn(&Complex::new(1.0, *u), params);
-                accumulate+if result.re.is_nan()||result.im.is_nan() {
-                    LARGE_NUMBER
-                }
-                else {
-                    (phi-result).norm_sqr()
-                }            
-            })
-    }
+    u_array.iter()
+        .zip(phi_hat.iter())
+        .fold(0.0, |accumulate, (u, phi)|{
+            let result=cf_fn(&Complex::new(1.0, *u), maturity, params);
+            accumulate+if result.re.is_nan()||result.im.is_nan() {
+                LARGE_NUMBER
+            }
+            else {
+                (phi-result).norm_sqr()
+            }            
+        })
 }
 
 #[cfg(test)]
@@ -397,17 +399,19 @@ mod tests {
     }
     #[test]
     fn test_get_obj_one_parameter(){
-        let cf=|u:&Complex<f64>, _sl:&[f64]|Complex::new(u.im, 0.0);
+        let cf=|u:&Complex<f64>, _m:f64, _sl:&[f64]|Complex::new(u.im, 0.0);
         let arr=vec![Complex::new(3.0, 0.0), Complex::new(4.0, 0.0), Complex::new(5.0, 0.0)];
         let u_arr=vec![6.0, 7.0, 8.0];
-        let hoc=get_obj_fn_arr(
-            arr,
-            u_arr,
+        let params=vec![0.0];
+        let result=obj_fn_arr(
+            &arr,
+            &u_arr,
+            &params,
+            1.0,
             cf
         );
         let expected=27.0;//3*3^2
-        let tmp:f64=0.0;
-        assert_eq!(hoc(&[tmp]), expected);
+        assert_eq!(result, expected);
     }
     #[test]
     fn test_option_spline(){

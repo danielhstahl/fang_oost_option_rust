@@ -157,13 +157,13 @@ fn threshold_condition(strike:f64, threshold:f64)->bool{strike<=threshold}
 /// //vector of tuple of (strike, option)
 /// let strikes_and_options = vec![
 ///     option_calibration::OptionStats{
-///         rate:0.05, maturity:0.8, strike:30.0, price:22.0
+///         maturity:0.8, strike:30.0, price:22.0
 ///     },
 ///     option_calibration::OptionStats{
-///         rate:0.05, maturity:0.8, strike:50.0, price:4.0
+///         maturity:0.8, strike:50.0, price:4.0
 ///     },
 ///     option_calibration::OptionStats{
-///         rate:0.05, maturity:0.8, strike:60.0, price:0.5
+///         maturity:0.8, strike:60.0, price:0.5
 ///     }
 /// ]; 
 /// let stock = 50.0;
@@ -251,13 +251,13 @@ pub fn get_option_spline<'a>(
 /// # fn main() {
 /// let strikes_and_options = vec![
 ///     option_calibration::OptionStats{
-///         rate:0.05, maturity:0.8, strike:30.0, price:22.0
+///         maturity:0.8, strike:30.0, price:22.0
 ///     },
 ///     option_calibration::OptionStats{
-///         rate:0.05, maturity:0.8, strike:50.0, price:4.0
+///         maturity:0.8, strike:50.0, price:4.0
 ///     },
 ///     option_calibration::OptionStats{
-///         rate:0.05, maturity:0.8, strike:60.0, price:0.5
+///         maturity:0.8, strike:60.0, price:0.5
 ///     }
 /// ];
 /// let stock = 50.0;
@@ -289,8 +289,6 @@ pub fn generate_fo_estimate<'a, 'b:'a>(
     max_strike:f64
 )->impl IndexedParallelIterator<Item = Complex<f64> >+'a
 {
-    //should all have the same maturity in the slice
-    //let OptionStats{maturity,..}=strikes_and_option_prices.first().unwrap();
     let discount=(-maturity*rate).exp();
     let spline=get_option_spline(
         strikes_and_option_prices,
@@ -302,7 +300,7 @@ pub fn generate_fo_estimate<'a, 'b:'a>(
     let cmp:Complex<f64>=Complex::new(0.0, 1.0);
     let x_min=(discount*transform_price(min_strike, stock)).ln();
     let x_max=(discount*transform_price(max_strike, stock)).ln();
-    //move |n, u_array|{
+
     dft(u_array, x_min, x_max, n, move |x, _|{
         let exp_x=x.exp();
         let strike=exp_x/discount;
@@ -311,8 +309,7 @@ pub fn generate_fo_estimate<'a, 'b:'a>(
     }).map(move |(u, cf)|{
         let front=u*cmp*(1.0+u*cmp);
         (1.0+cf*front).ln()
-    })//.collect()
-    //}
+    })
 }
 const LARGE_NUMBER:f64=500000.0;
 

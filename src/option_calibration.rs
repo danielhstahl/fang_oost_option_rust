@@ -75,8 +75,7 @@ fn dft<'a, 'b: 'a>(
 #[derive(Serialize, Deserialize)]
 pub struct OptionStats{
     pub price:f64,
-    pub strike:f64,
-    pub maturity:f64
+    pub strike:f64
 }
 
 const NORMALIZED_STRIKE_THRESHOLD:f64=1.0;
@@ -157,13 +156,13 @@ fn threshold_condition(strike:f64, threshold:f64)->bool{strike<=threshold}
 /// //vector of tuple of (strike, option)
 /// let strikes_and_options = vec![
 ///     option_calibration::OptionStats{
-///         maturity:0.8, strike:30.0, price:22.0
+///         strike:30.0, price:22.0
 ///     },
 ///     option_calibration::OptionStats{
-///         maturity:0.8, strike:50.0, price:4.0
+///         strike:50.0, price:4.0
 ///     },
 ///     option_calibration::OptionStats{
-///         maturity:0.8, strike:60.0, price:0.5
+///         strike:60.0, price:0.5
 ///     }
 /// ]; 
 /// let stock = 50.0;
@@ -251,13 +250,13 @@ pub fn get_option_spline<'a>(
 /// # fn main() {
 /// let strikes_and_options = vec![
 ///     option_calibration::OptionStats{
-///         maturity:0.8, strike:30.0, price:22.0
+///         strike:30.0, price:22.0
 ///     },
 ///     option_calibration::OptionStats{
-///         maturity:0.8, strike:50.0, price:4.0
+///         strike:50.0, price:4.0
 ///     },
 ///     option_calibration::OptionStats{
-///         maturity:0.8, strike:60.0, price:0.5
+///         strike:60.0, price:0.5
 ///     }
 /// ];
 /// let stock = 50.0;
@@ -381,9 +380,9 @@ mod tests {
     #[test]
     fn test_transform_prices(){
         let arr=vec![
-            OptionStats{maturity:1.0, price:3.0, strike:3.0}, 
-            OptionStats{maturity:1.0, price:4.0, strike:4.0}, 
-            OptionStats{maturity:1.0, price:5.0, strike:5.0} 
+            OptionStats{price:3.0, strike:3.0}, 
+            OptionStats{price:4.0, strike:4.0}, 
+            OptionStats{price:5.0, strike:5.0} 
         ];
         let asset=4.0;
         let min_v=(2.0, 2.0);
@@ -416,20 +415,20 @@ mod tests {
     #[test]
     fn test_option_spline(){
         let tmp_strikes_and_option_prices:Vec<OptionStats>=vec![
-            OptionStats{maturity:1.0, strike:95.0, price:85.0}, 
-            OptionStats{maturity:1.0, strike:130.0, price:51.5}, 
-            OptionStats{maturity:1.0, strike:150.0, price:35.38}, 
-            OptionStats{maturity:1.0, strike:160.0, price:28.3}, 
-            OptionStats{maturity:1.0, strike:165.0, price:25.2}, 
-            OptionStats{maturity:1.0, strike:170.0, price:22.27}, 
-            OptionStats{maturity:1.0, strike:175.0, price:19.45}, 
-            OptionStats{maturity:1.0, strike:185.0, price:14.77}, 
-            OptionStats{maturity:1.0, strike:190.0, price:12.75}, 
-            OptionStats{maturity:1.0, strike:195.0, price:11.0}, 
-            OptionStats{maturity:1.0, strike:200.0, price:9.35}, 
-            OptionStats{maturity:1.0, strike:210.0, price:6.9}, 
-            OptionStats{maturity:1.0, strike:240.0, price:2.55}, 
-            OptionStats{maturity:1.0, strike:250.0, price:1.88}
+            OptionStats{strike:95.0, price:85.0}, 
+            OptionStats{strike:130.0, price:51.5}, 
+            OptionStats{strike:150.0, price:35.38}, 
+            OptionStats{strike:160.0, price:28.3}, 
+            OptionStats{strike:165.0, price:25.2}, 
+            OptionStats{strike:170.0, price:22.27}, 
+            OptionStats{strike:175.0, price:19.45}, 
+            OptionStats{strike:185.0, price:14.77}, 
+            OptionStats{strike:190.0, price:12.75}, 
+            OptionStats{strike:195.0, price:11.0}, 
+            OptionStats{strike:200.0, price:9.35}, 
+            OptionStats{strike:210.0, price:6.9}, 
+            OptionStats{strike:240.0, price:2.55}, 
+            OptionStats{strike:250.0, price:1.88}
         ];
         let maturity:f64=1.0;
         let rate=0.05;
@@ -445,20 +444,20 @@ mod tests {
     #[test]
     fn test_option_spline_at_many_values(){
         let tmp_strikes_and_option_prices:Vec<OptionStats>=vec![
-            OptionStats{maturity:1.0, strike:95.0, price:85.0}, 
-            OptionStats{maturity:1.0, strike:130.0, price:51.5}, 
-            OptionStats{maturity:1.0, strike:150.0, price:35.38}, 
-            OptionStats{maturity:1.0, strike:160.0, price:28.3}, 
-            OptionStats{maturity:1.0, strike:165.0, price:25.2}, 
-            OptionStats{maturity:1.0, strike:170.0, price:22.27}, 
-            OptionStats{maturity:1.0, strike:175.0, price:19.45}, 
-            OptionStats{maturity:1.0, strike:185.0, price:14.77}, 
-            OptionStats{maturity:1.0, strike:190.0, price:12.75}, 
-            OptionStats{maturity:1.0, strike:195.0, price:11.0}, 
-            OptionStats{maturity:1.0, strike:200.0, price:9.35}, 
-            OptionStats{maturity:1.0, strike:210.0, price:6.9}, 
-            OptionStats{maturity:1.0, strike:240.0, price:2.55}, 
-            OptionStats{maturity:1.0, strike:250.0, price:1.88}
+            OptionStats{strike:95.0, price:85.0}, 
+            OptionStats{strike:130.0, price:51.5}, 
+            OptionStats{strike:150.0, price:35.38}, 
+            OptionStats{strike:160.0, price:28.3}, 
+            OptionStats{strike:165.0, price:25.2}, 
+            OptionStats{strike:170.0, price:22.27}, 
+            OptionStats{strike:175.0, price:19.45}, 
+            OptionStats{strike:185.0, price:14.77}, 
+            OptionStats{strike:190.0, price:12.75}, 
+            OptionStats{strike:195.0, price:11.0}, 
+            OptionStats{strike:200.0, price:9.35}, 
+            OptionStats{strike:210.0, price:6.9}, 
+            OptionStats{strike:240.0, price:2.55}, 
+            OptionStats{strike:250.0, price:1.88}
         ];
         let maturity:f64=1.0;
         let rate=0.05;
@@ -480,20 +479,20 @@ mod tests {
     #[test]
     fn test_generate_fo_runs(){
         let tmp_strikes_and_option_prices:Vec<OptionStats>=vec![
-            OptionStats{maturity:1.0, strike:95.0, price:85.0}, 
-            OptionStats{maturity:1.0, strike:130.0, price:51.5}, 
-            OptionStats{maturity:1.0, strike:150.0, price:35.38}, 
-            OptionStats{maturity:1.0, strike:160.0, price:28.3}, 
-            OptionStats{maturity:1.0, strike:165.0, price:25.2}, 
-            OptionStats{maturity:1.0, strike:170.0, price:22.27}, 
-            OptionStats{maturity:1.0, strike:175.0, price:19.45}, 
-            OptionStats{maturity:1.0, strike:185.0, price:14.77}, 
-            OptionStats{maturity:1.0, strike:190.0, price:12.75}, 
-            OptionStats{maturity:1.0, strike:195.0, price:11.0}, 
-            OptionStats{maturity:1.0, strike:200.0, price:9.35}, 
-            OptionStats{maturity:1.0, strike:210.0, price:6.9}, 
-            OptionStats{maturity:1.0, strike:240.0, price:2.55}, 
-            OptionStats{maturity:1.0, strike:250.0, price:1.88}
+            OptionStats{strike:95.0, price:85.0}, 
+            OptionStats{strike:130.0, price:51.5}, 
+            OptionStats{strike:150.0, price:35.38}, 
+            OptionStats{strike:160.0, price:28.3}, 
+            OptionStats{strike:165.0, price:25.2}, 
+            OptionStats{strike:170.0, price:22.27}, 
+            OptionStats{strike:175.0, price:19.45}, 
+            OptionStats{strike:185.0, price:14.77}, 
+            OptionStats{strike:190.0, price:12.75}, 
+            OptionStats{strike:195.0, price:11.0}, 
+            OptionStats{strike:200.0, price:9.35}, 
+            OptionStats{strike:210.0, price:6.9}, 
+            OptionStats{strike:240.0, price:2.55}, 
+            OptionStats{strike:250.0, price:1.88}
         ];
         let maturity:f64=1.0;
         let rate=0.05;
@@ -516,20 +515,20 @@ mod tests {
     #[test]
     fn test_generate_fo_accuracy(){
         let tmp_strikes_and_option_prices:Vec<OptionStats>=vec![
-            OptionStats{maturity:1.0, strike:95.0, price:85.0}, 
-            OptionStats{maturity:1.0, strike:130.0, price:51.5}, 
-            OptionStats{maturity:1.0, strike:150.0, price:35.38}, 
-            OptionStats{maturity:1.0, strike:160.0, price:28.3}, 
-            OptionStats{maturity:1.0, strike:165.0, price:25.2}, 
-            OptionStats{maturity:1.0, strike:170.0, price:22.27}, 
-            OptionStats{maturity:1.0, strike:175.0, price:19.45}, 
-            OptionStats{maturity:1.0, strike:185.0, price:14.77}, 
-            OptionStats{maturity:1.0, strike:190.0, price:12.75}, 
-            OptionStats{maturity:1.0, strike:195.0, price:11.0}, 
-            OptionStats{maturity:1.0, strike:200.0, price:9.35}, 
-            OptionStats{maturity:1.0, strike:210.0, price:6.9}, 
-            OptionStats{maturity:1.0, strike:240.0, price:2.55}, 
-            OptionStats{maturity:1.0, strike:250.0, price:1.88}
+            OptionStats{strike:95.0, price:85.0}, 
+            OptionStats{strike:130.0, price:51.5}, 
+            OptionStats{strike:150.0, price:35.38}, 
+            OptionStats{strike:160.0, price:28.3}, 
+            OptionStats{strike:165.0, price:25.2}, 
+            OptionStats{strike:170.0, price:22.27}, 
+            OptionStats{strike:175.0, price:19.45}, 
+            OptionStats{strike:185.0, price:14.77}, 
+            OptionStats{strike:190.0, price:12.75}, 
+            OptionStats{strike:195.0, price:11.0}, 
+            OptionStats{strike:200.0, price:9.35}, 
+            OptionStats{strike:210.0, price:6.9}, 
+            OptionStats{strike:240.0, price:2.55}, 
+            OptionStats{strike:250.0, price:1.88}
         ];
         let maturity:f64=1.0;
         let rate=0.05;
@@ -564,20 +563,20 @@ mod tests {
     #[test]
     fn test_monotone_spline(){
         let tmp_strikes_and_option_prices:Vec<OptionStats>=vec![
-            OptionStats{maturity:1.0, strike:95.0, price:85.0}, 
-            OptionStats{maturity:1.0, strike:130.0, price:51.5}, 
-            OptionStats{maturity:1.0, strike:150.0, price:35.38}, 
-            OptionStats{maturity:1.0, strike:160.0, price:28.3}, 
-            OptionStats{maturity:1.0, strike:165.0, price:25.2}, 
-            OptionStats{maturity:1.0, strike:170.0, price:22.27}, 
-            OptionStats{maturity:1.0, strike:175.0, price:19.45}, 
-            OptionStats{maturity:1.0, strike:185.0, price:14.77}, 
-            OptionStats{maturity:1.0, strike:190.0, price:12.75}, 
-            OptionStats{maturity:1.0, strike:195.0, price:11.0}, 
-            OptionStats{maturity:1.0, strike:200.0, price:9.35}, 
-            OptionStats{maturity:1.0, strike:210.0, price:6.9}, 
-            OptionStats{maturity:1.0, strike:240.0, price:2.55}, 
-            OptionStats{maturity:1.0, strike:250.0, price:1.88}
+            OptionStats{strike:95.0, price:85.0}, 
+            OptionStats{strike:130.0, price:51.5}, 
+            OptionStats{strike:150.0, price:35.38}, 
+            OptionStats{strike:160.0, price:28.3}, 
+            OptionStats{strike:165.0, price:25.2}, 
+            OptionStats{strike:170.0, price:22.27}, 
+            OptionStats{strike:175.0, price:19.45}, 
+            OptionStats{strike:185.0, price:14.77}, 
+            OptionStats{strike:190.0, price:12.75}, 
+            OptionStats{strike:195.0, price:11.0}, 
+            OptionStats{strike:200.0, price:9.35}, 
+            OptionStats{strike:210.0, price:6.9}, 
+            OptionStats{strike:240.0, price:2.55}, 
+            OptionStats{strike:250.0, price:1.88}
         ];
         let maturity:f64=1.0;
         let rate=0.05;

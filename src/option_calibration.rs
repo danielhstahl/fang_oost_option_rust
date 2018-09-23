@@ -210,10 +210,7 @@ pub fn get_option_spline<'a>(
     let (threshold, _)=threshold_t;
     right.push(threshold_t);
 
-    //let left_transform:Vec<(f64, f64)>=
-    //this whole mess is because I want to keep there from being
-    //odd jumps in the left side of the spline.
-    let mut l_iterator=left
+     let left_transform:Vec<(f64, f64)>=left
         .into_iter()
         .rev()
         .map(|(normalized_strike, normalized_price)|{
@@ -221,21 +218,7 @@ pub fn get_option_spline<'a>(
                 normalized_strike, 
                 normalized_price-adjust_domain(normalized_strike, discount)
             )
-        }).peekable();
-    let mut left_transform:Vec<(f64, f64)>=vec![];
-    while l_iterator.peek()!=None {
-        let (strike, curr)=l_iterator.next().unwrap();
-        if l_iterator.peek()==None{
-            left_transform.push((strike, curr));
-        }
-        else {
-            let (_, next)=l_iterator.peek().unwrap();
-            if next>&curr || curr<=0.0 { 
-                left_transform.push((strike, curr));
-            }
-        }
-        
-    }       
+    }).collect(); 
 
     let right_transform:Vec<(f64, f64)>=right
         .into_iter()

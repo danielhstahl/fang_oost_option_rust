@@ -17,7 +17,7 @@ Put the following in your Cargo.toml:
 
 ```toml
 [dependencies]
-fang_oost_option = "0.21"
+fang_oost_option = "0.27"
 ```
 
 Import and use:
@@ -46,4 +46,4 @@ let prices = option_pricing::fang_oost_call_price(
 
 # Speed
 
-The benchmarks are comparable to my [C++](https://github.com/phillyfan1138/FangOost) implementation.  To run the tests with benchmarking, use `cargo test --release -- --nocapture`.  To run the rust internal benchmark, switch to nightly rust (`rustup default nightly`) and run `cargo bench`.  
+The benchmarks are comparable to my [C++](https://github.com/phillyfan1138/FangOost) implementation.  To run the tests with benchmarking, use `cargo test --release -- --nocapture`.    

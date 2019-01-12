@@ -46,4 +46,4 @@ let prices = option_pricing::fang_oost_call_price(
 
 # Speed
 
-The benchmarks are comparable to my [C++](https://github.com/phillyfan1138/FangOost) implementation.  To run the tests with benchmarking, use `cargo test --release -- --nocapture`.    
+The benchmarks are comparable to my [C++](https://github.com/phillyfan1138/FangOost) implementation.  To run the tests with benchmarking, use `cargo bench`.    

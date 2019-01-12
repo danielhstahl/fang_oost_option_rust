@@ -1,6 +1,6 @@
 [package]
 name = "fang_oost_option"
-version = "0.27.0"
+version = "0.27.1"
 authors = ["Daniel Stahl <danstahl1138@gmail.com>"]
 homepage = "https://github.com/phillyfan1138/fang_oost_option_rust"
 repository = "https://github.com/phillyfan1138/fang_oost_option_rust"
@@ -21,6 +21,11 @@ serde_derive = "1.0"
 approx = "0.2.0"
 black_scholes = "0.2.7"
 cf_functions = "0.6.0"
+bencher = "0.1.5"
+
+[[bench]]
+name = "bench"
+harness = false
 
 [badges]
 travis-ci = { repository = "phillyfan1138/fang_oost_option_rust" }

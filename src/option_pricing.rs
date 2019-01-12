@@ -480,7 +480,6 @@ pub fn fang_oost_put_gamma<'a, S>(
 #[cfg(test)]
 mod tests {
     use option_pricing::*;
-    use std::time::{ Instant};
     fn get_fang_oost_k_at_index(
         x_min:f64,
         dk:f64,
@@ -514,10 +513,7 @@ mod tests {
         let num_x=(2 as usize).pow(10);
         let num_u=64;
         let k_array=get_fang_oost_strike(-x_max, x_max, asset, num_x);
-        let now = Instant::now();
         let my_option_price=fang_oost_call_price(num_u, asset, &k_array, r, t, bs_cf);
-        let new_now = Instant::now();
-        println!("Call price time: {:?}", new_now.duration_since(now));
         let min_n=num_x/4;
         let max_n=num_x-num_x/4;
         for i in min_n..max_n{
@@ -566,10 +562,7 @@ mod tests {
         let num_x=(2 as usize).pow(10);
         let num_u=64;
         let k_array=get_fang_oost_strike(-x_max, x_max, asset, num_x);
-        let now = Instant::now();
         let my_option_price=fang_oost_put_price(num_u, asset, &k_array, r, t, bs_cf);
-        let new_now = Instant::now();
-        println!("Put price time: {:?}", new_now.duration_since(now));
         let min_n=num_x/4;
         let max_n=num_x-num_x/4;
         for i in min_n..max_n{
@@ -591,10 +584,7 @@ mod tests {
         let num_x=(2 as usize).pow(10);
         let num_u=64;
         let k_array=get_fang_oost_strike(-x_max, x_max, asset, num_x);
-        let now = Instant::now();
         let my_option_price=fang_oost_call_delta(num_u, asset, &k_array, r, t, bs_cf);
-        let new_now = Instant::now();
-        println!("Call delta time: {:?}", new_now.duration_since(now));
         let min_n=num_x/4;
         let max_n=num_x-num_x/4;
         for i in min_n..max_n{
@@ -616,10 +606,7 @@ mod tests {
         let num_x=(2 as usize).pow(10);
         let num_u=64;
         let k_array=get_fang_oost_strike(-x_max, x_max, asset, num_x);
-        let now = Instant::now();
         let my_option_price=fang_oost_put_delta(num_u, asset, &k_array, r, t, bs_cf);
-        let new_now = Instant::now();
-        println!("Put delta time: {:?}", new_now.duration_since(now));
         let min_n=num_x/4;
         let max_n=num_x-num_x/4;
         for i in min_n..max_n{
@@ -641,10 +628,7 @@ mod tests {
         let num_x=(2 as usize).pow(10);
         let num_u=64;
         let k_array=get_fang_oost_strike(-x_max, x_max, asset, num_x);
-        let now = Instant::now();
         let my_option_price=fang_oost_call_gamma(num_u, asset, &k_array, r, t, bs_cf);
-        let new_now = Instant::now();
-        println!("Call gamma time: {:?}", new_now.duration_since(now));
         let min_n=num_x/4;
         let max_n=num_x-num_x/4;
         for i in min_n..max_n{
@@ -666,10 +650,7 @@ mod tests {
         let num_x=(2 as usize).pow(10);
         let num_u=64;
         let k_array=get_fang_oost_strike(-x_max, x_max, asset, num_x);
-        let now = Instant::now();
         let my_option_price=fang_oost_put_gamma(num_u, asset, &k_array, r, t, bs_cf);
-        let new_now = Instant::now();
-        println!("Put gamma time: {:?}", new_now.duration_since(now));
         let min_n=num_x/4;
         let max_n=num_x-num_x/4;
         for i in min_n..max_n{
@@ -691,10 +672,7 @@ mod tests {
         let num_x=(2 as usize).pow(10);
         let num_u=64;
         let k_array=get_fang_oost_strike(-x_max, x_max, asset, num_x);
-        let now = Instant::now();
         let my_option_price=fang_oost_call_theta(num_u, asset, &k_array, r, t, bs_cf);
-        let new_now = Instant::now();
-        println!("Call theta time: {:?}", new_now.duration_since(now));
         let min_n=num_x/4;
         let max_n=num_x-num_x/4;
         for i in min_n..max_n{
@@ -716,10 +694,7 @@ mod tests {
         let num_x=(2 as usize).pow(10);
         let num_u=64;
         let k_array=get_fang_oost_strike(-x_max, x_max, asset, num_x);
-        let now = Instant::now();
         let my_option_price=fang_oost_put_theta(num_u, asset, &k_array, r, t, bs_cf);
-        let new_now = Instant::now();
-        println!("Put theta time: {:?}", new_now.duration_since(now));
         let min_n=num_x/4;
         let max_n=num_x-num_x/4;
         for i in min_n..max_n{

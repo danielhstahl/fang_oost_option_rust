@@ -1,4 +1,3 @@
-extern crate num;
 const LARGEST_APPROPRIATE_DISTANCE:f64=0.00000000001;
 pub fn spline_mov(
     x_and_y:Vec<(f64, f64)>
@@ -73,7 +72,8 @@ pub fn spline_mov(
 
 #[cfg(test)]
 mod tests {
-    use monotone_spline::*;
+    use crate::monotone_spline::*;
+    use approx::*;
     #[test]
     fn test_returns_value_at_knot(){
         let x_y:Vec<(f64, f64)>=vec![(1.0, 2.0), (2.0, 2.5), (3.0, 3.0)];

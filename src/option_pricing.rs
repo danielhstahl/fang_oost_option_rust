@@ -13,17 +13,8 @@
 //! to smallest. [Link to Fang-Oosterlee paper](http://ta.twi.tudelft.nl/mf/users/oosterle/oosterlee/COS.pdf).
 //! 
 
-extern crate num;
-extern crate num_complex;
-extern crate rayon;
-extern crate fang_oost;
-#[cfg(test)]
-extern crate black_scholes;
-#[cfg(test)]
-extern crate cf_functions;
-
-use self::num_complex::Complex;
-use self::rayon::prelude::*;
+use num_complex::Complex;
+use rayon::prelude::*;
 use std;
 
 
@@ -479,7 +470,8 @@ pub fn fang_oost_put_gamma<'a, S>(
 
 #[cfg(test)]
 mod tests {
-    use option_pricing::*;
+    use crate::option_pricing::*;
+    use approx::*;
     fn get_fang_oost_k_at_index(
         x_min:f64,
         dk:f64,

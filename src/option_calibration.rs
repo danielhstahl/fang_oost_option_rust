@@ -12,19 +12,15 @@
 //! module only works on a single maturity at atime.  It does not 
 //! calibrate across all maturities simultanously.  
 //! 
-extern crate num;
-extern crate num_complex;
-extern crate rayon;
-extern crate fang_oost;
-extern crate serde;
 
 #[cfg(test)]
 use std::f64::consts::PI;
 
-use self::num_complex::Complex;
-use self::rayon::prelude::*;
+use num_complex::Complex;
+use rayon::prelude::*;
 use std;
-use monotone_spline;
+use crate::monotone_spline;
+use serde_derive::{Deserialize, Serialize};
 
 pub fn max_zero_or_number(num:f64)->f64{
     if num>0.0 {num} else {0.0}
@@ -375,7 +371,8 @@ pub fn obj_fn_arr<'a>(
 
 #[cfg(test)]
 mod tests {
-    use option_calibration::*;
+    use crate::option_calibration::*;
+    use approx::*;
     #[test]
     fn test_transform_prices(){
         let arr=vec![

@@ -13,12 +13,7 @@ Implements [Fang-Oosterlee](https://mpra.ub.uni-muenchen.de/8914/4/MPRA_paper_89
 
 ## Use
 
-Put the following in your Cargo.toml:
-
-```toml
-[dependencies]
-fang_oost_option = "0.27"
-```
+The crate is available on [crates.io](https://crates.io/crates/fang_oost_option).
 
 Import and use:
 

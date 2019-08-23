@@ -73,7 +73,7 @@ pub fn spline_mov(
 #[cfg(test)]
 mod tests {
     use crate::monotone_spline::*;
-    use approx::*;
+    use approx::*; 
     #[test]
     fn test_returns_value_at_knot(){
         let x_y:Vec<(f64, f64)>=vec![(1.0, 2.0), (2.0, 2.5), (3.0, 3.0)];

@@ -25,6 +25,7 @@ after_success: |
     cargo bench
     cargo doc
     cargo publish --token "$CARGO_API" --allow-dirty
+    echo "<meta http-equiv=\"refresh\" content=\"0, url=https://fang_oost_option_rust.github.io/report/index.html\">" > target/criterion/index.html
   fi
 
 matrix:
@@ -41,7 +42,7 @@ deploy:
   skip_cleanup: true
   github_token: "$GITHUB_TOKEN"
   keep_history: true
-  local_dir: target/
+  local_dir: target/criterion
   on:
     branch: master
     rust: stable

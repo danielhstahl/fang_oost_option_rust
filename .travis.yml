@@ -25,7 +25,6 @@ after_success: |
     cargo bench
     cargo doc
     cargo publish --token "$CARGO_API" --allow-dirty
-    echo "<meta http-equiv=\"refresh\" content=\"0, url=https://phillyfan1138.github.io/fang_oost_option_rust/report/index.html\">" > target/criterion/index.html
   fi
 
 matrix:

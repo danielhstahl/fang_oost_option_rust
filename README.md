@@ -9,7 +9,7 @@
 
 # Fang-Oosterlee Option Pricing for Rust
 
-Implements [Fang-Oosterlee](https://mpra.ub.uni-muenchen.de/8914/4/MPRA_paper_8914.pdf) option pricing in Rust.  Documentation is at [docs.rs](https://docs.rs/fang_oost_option/0.21.5/fang_oost_option/)
+Implements [Fang-Oosterlee](https://mpra.ub.uni-muenchen.de/8914/4/MPRA_paper_8914.pdf) option pricing in Rust.  Documentation is at [docs.rs](https://docs.rs/fang_oost_option/)
 
 ## Use
 

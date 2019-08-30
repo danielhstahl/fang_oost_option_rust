@@ -1,0 +1,49 @@
+name: Rust
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust: [stable, nightly]
+
+    steps:
+    - uses: actions/checkout@v1
+    - uses: hecrj/setup-rust-action@master
+      with:
+        rust-version: ${{ matrix.rust }}
+    - name: Build
+      run: cargo build --verbose
+    - name: Run tests stable
+      if: matrix.rust == 'stable'
+      run: cargo test --verbose
+    - name: Run tests nightly with coverage
+      if: matrix.rust == 'nightly' 
+      env:
+        CARGO_INCREMENTAL: 0
+        RUSTFLAGS: -Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Zno-landing-pads
+      run: |
+        cargo test
+        curl -L https://github.com/mozilla/grcov/releases/latest/download/grcov-linux-x86_64.tar.bz2 | tar jxf -
+        zip -0 ccov.zip `find . \( -name "fang_oost*.gc*" \) -print`
+        ./grcov ccov.zip -s . -t lcov --llvm --branch --ignore-not-existing --ignore-dir "/*" -o lcov.info
+        bash <(curl -s https://codecov.io/bash) -f lcov.info -t ${{ secrets.CODECOV_TOKEN }}
+    - name: Document 
+      run: cargo doc
+    - name: Publish
+      if: matrix.rust == 'stable'
+      run: |
+        cargo bench
+        cargo publish --token ${{ secrets.CARGO_TOKEN }} --allow-dirty || true
+        
+    - name: Deploy pages
+      uses: JamesIves/github-pages-deploy-action@master
+      if: matrix.rust == 'stable'
+      env: 
+        ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        BRANCH: gh-pages
+        FOLDER: target/criterion
+      

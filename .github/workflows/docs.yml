@@ -1,0 +1,21 @@
+name: Docs
+
+on:
+  push:
+    branches:
+      - master
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Run tests stable
+      run: cargo test 
+    - name: Benchmarks
+      uses: phillyfan1138/gnuplot-action@master
+    - name: Deploy pages
+      uses: JamesIves/github-pages-deploy-action@master
+      env: 
+        ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        BRANCH: gh-pages
+        FOLDER: target/criterion

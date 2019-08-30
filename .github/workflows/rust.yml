@@ -38,12 +38,3 @@ jobs:
       run: |
         cargo bench
         cargo publish --token ${{ secrets.CARGO_TOKEN }} --allow-dirty || true
-        
-    - name: Deploy pages
-      uses: JamesIves/github-pages-deploy-action@master
-      if: matrix.rust == 'stable'
-      env: 
-        ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
-        BRANCH: gh-pages
-        FOLDER: target/criterion
-      

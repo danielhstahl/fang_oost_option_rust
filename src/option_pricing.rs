@@ -538,7 +538,7 @@ mod tests {
         let speed = 0.5;
         let ada_v = 0.3;
         let rho = -0.5;
-        let inst_cf = cf_functions::merton_time_change_cf(
+        let inst_cf = cf_functions::merton::merton_time_change_cf(
             t, r, lambda, mu_j, sig_j, sig, v0, speed, ada_v, rho,
         );
 
@@ -726,7 +726,7 @@ mod tests {
         let m = 29.97;
         let y = 0.6442;
         let cgmy_cf = |u: &Complex<f64>| {
-            (cf_functions::cgmy_log_risk_neutral_cf(u, c, g, m, y, r, sig) * t).exp()
+            (cf_functions::cgmy::cgmy_log_risk_neutral_cf(u, c, g, m, y, r, sig) * t).exp()
         };
 
         let num_u = 256 as usize;
@@ -750,7 +750,7 @@ mod tests {
         let m = 5.0;
         let y = 0.5;
         let cgmy_cf = |u: &Complex<f64>| {
-            (t * cf_functions::cgmy_log_risk_neutral_cf(u, c, g, m, y, r, sig)).exp()
+            (t * cf_functions::cgmy::cgmy_log_risk_neutral_cf(u, c, g, m, y, r, sig)).exp()
         };
 
         let num_u = 64 as usize;
@@ -780,10 +780,11 @@ mod tests {
         let k_array = vec![7500.0, 100.0, 0.3];
 
         let heston_cf = |u: &Complex<f64>| {
-            let cmp_mu = -cf_functions::merton_log_risk_neutral_cf(u, 0.0, 1.0, 1.0, 0.0, sig);
+            let cmp_mu =
+                -cf_functions::merton::merton_log_risk_neutral_cf(u, 0.0, 1.0, 1.0, 0.0, sig);
             let cmp_drift = kappa - eta_v * rho * u * sig;
             (r * t * u
-                + cf_functions::cir_log_mgf_cmp(&cmp_mu, speed, &cmp_drift, eta_v, t, v0_hat))
+                + cf_functions::cir::cir_log_mgf_cmp(&cmp_mu, speed, &cmp_drift, eta_v, t, v0_hat))
             .exp()
         };
 

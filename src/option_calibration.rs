@@ -21,6 +21,7 @@ use num_complex::Complex;
 use rayon::prelude::*;
 use serde_derive::{Deserialize, Serialize};
 use std;
+use std::f64::{MAX, MIN_POSITIVE};
 
 pub fn max_zero_or_number(num: f64) -> f64 {
     if num > 0.0 {
@@ -189,12 +190,11 @@ pub fn get_option_spline<'a>(
     max_strike: f64,
 ) -> impl Fn(f64) -> f64 + 'a {
     let min_option = stock - min_strike * discount;
-    let max_option = 0.00000001; //essentially zero
     let padded_strikes_and_option_prices = transform_prices(
         &strikes_and_option_prices,
         stock,
         &(min_strike, min_option),
-        &(max_strike, max_option),
+        &(max_strike, MIN_POSITIVE),
     );
 
     let (left, mut right): (Vec<(f64, f64)>, Vec<(f64, f64)>) = padded_strikes_and_option_prices
@@ -302,7 +302,6 @@ pub fn generate_fo_estimate<'a, 'b: 'a>(
         (1.0 + cf * front).ln()
     })
 }
-const LARGE_NUMBER: f64 = 500000.0;
 
 /// Returns function which computes the mean squared error
 /// between the empirical and analytical characteristic
@@ -357,7 +356,7 @@ pub fn obj_fn_arr<'a>(
             let result = cf_fn(&Complex::new(1.0, *u), maturity, params);
             accumulate
                 + if result.re.is_nan() || result.im.is_nan() {
-                    LARGE_NUMBER
+                    MAX
                 } else {
                     (phi - result).norm_sqr()
                 }

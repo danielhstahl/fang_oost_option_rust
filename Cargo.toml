@@ -1,6 +1,6 @@
 [package]
 name = "fang_oost_option"
-version = "0.28.1"
+version = "0.28.2"
 authors = ["Daniel Stahl <danstahl1138@gmail.com>"]
 homepage = "https://github.com/phillyfan1138/fang_oost_option_rust"
 repository = "https://github.com/phillyfan1138/fang_oost_option_rust"
@@ -11,7 +11,7 @@ edition = "2018"
 
 [dependencies]
 num = "0.2"
-rayon = "1.0.1"
+rayon = "1.4.1"
 num-complex = "0.2"
 fang_oost = "0.14.0"
 serde = "1.0"

@@ -55,6 +55,7 @@ fn dft<'a, 'b: 'a>(
 ) -> impl IndexedParallelIterator<Item = (f64, Complex<f64>)> + 'a {
     let cmp_i: Complex<f64> = Complex::new(0.0, 1.0);
     let dx = get_dx(n, x_min, x_max);
+    let dx_value = dx / 3.0; //3.0 is from simpson
     u_array.par_iter().map(move |u| {
         (
             *u,
@@ -62,7 +63,7 @@ fn dft<'a, 'b: 'a>(
                 .map(|index| {
                     let simpson = simpson_integrand(index, n);
                     let x = x_min + dx * (index as f64);
-                    (cmp_i * u * x).exp() * fn_to_invert(x, index) * simpson * dx / 3.0
+                    (cmp_i * u * x).exp() * fn_to_invert(x, index) * simpson * dx_value
                 })
                 .sum(),
         )
@@ -343,7 +344,7 @@ const LARGE_NUMBER: f64 = 500000.0;
 /// # }
 /// ```
 pub fn obj_fn_arr<'a>(
-    phi_hat: &[Complex<f64>], //do we really want to borrow/move this??
+    phi_hat: &[Complex<f64>],
     u_array: &[f64],
     params: &[f64],
     maturity: f64,
@@ -827,5 +828,4 @@ mod tests {
             println!("spline at: {}: {}", v, sp_result);
         });
     }
-
 }

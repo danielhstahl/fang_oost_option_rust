@@ -465,7 +465,7 @@ where
                 .map(|(value, OptionData { strike, price })| {
                     let iv = black_scholes::call_iv(*price, asset, *strike, rate, *maturity)?;
                     let vega = black_scholes::call_vega(asset, *strike, rate, iv, *maturity);
-                    Ok((value - price).powi(2) / vega)
+                    Ok(((value - price) / vega).powi(2))
                 })
                 .sum::<Result<f64, f64>>()
             },

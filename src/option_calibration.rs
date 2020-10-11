@@ -71,9 +71,14 @@ fn dft<'a, 'b: 'a>(
     })
 }
 #[derive(Serialize, Deserialize)]
-pub struct OptionStats {
+pub struct OptionData {
     pub price: f64,
     pub strike: f64,
+}
+#[derive(Serialize, Deserialize)]
+pub struct OptionDataMaturity {
+    pub maturity: f64,
+    pub option_data: Vec<OptionData>,
 }
 
 const NORMALIZED_STRIKE_THRESHOLD: f64 = 1.0;
@@ -113,7 +118,7 @@ pub fn adjust_domain(normalized_strike: f64, discount: f64) -> f64 {
 }
 
 fn transform_prices(
-    arr: &[OptionStats],
+    arr: &[OptionData],
     asset: f64,
     min_v: &(f64, f64),
     max_v: &(f64, f64),
@@ -128,7 +133,7 @@ fn transform_prices(
     price_t.append(
         &mut arr
             .iter()
-            .map(|OptionStats { strike, price, .. }| {
+            .map(|OptionData { strike, price, .. }| {
                 (
                     transform_price(*strike, asset),
                     transform_price(*price, asset),
@@ -156,13 +161,13 @@ fn threshold_condition(strike: f64, threshold: f64) -> bool {
 /// # fn main() {
 /// //vector of tuple of (strike, option)
 /// let strikes_and_options = vec![
-///     option_calibration::OptionStats{
+///     option_calibration::OptionData{
 ///         strike:30.0, price:22.0
 ///     },
-///     option_calibration::OptionStats{
+///     option_calibration::OptionData{
 ///         strike:50.0, price:4.0
 ///     },
-///     option_calibration::OptionStats{
+///     option_calibration::OptionData{
 ///         strike:60.0, price:0.5
 ///     }
 /// ];
@@ -183,7 +188,7 @@ fn threshold_condition(strike: f64, threshold: f64) -> bool {
 /// # }
 /// ```
 pub fn get_option_spline<'a>(
-    strikes_and_option_prices: &[OptionStats],
+    strikes_and_option_prices: &[OptionData],
     stock: f64,
     discount: f64,
     min_strike: f64,
@@ -241,13 +246,13 @@ pub fn get_option_spline<'a>(
 /// use fang_oost_option::option_calibration;
 /// # fn main() {
 /// let strikes_and_options = vec![
-///     option_calibration::OptionStats{
+///     option_calibration::OptionData{
 ///         strike:30.0, price:22.0
 ///     },
-///     option_calibration::OptionStats{
+///     option_calibration::OptionData{
 ///         strike:50.0, price:4.0
 ///     },
-///     option_calibration::OptionStats{
+///     option_calibration::OptionData{
 ///         strike:60.0, price:0.5
 ///     }
 /// ];
@@ -270,7 +275,7 @@ pub fn get_option_spline<'a>(
 /// # }
 /// ```
 pub fn generate_fo_estimate<'a, 'b: 'a>(
-    strikes_and_option_prices: &'b [OptionStats],
+    strikes_and_option_prices: &'b [OptionData],
     u_array: &'b [f64],
     n: usize,
     stock: f64,
@@ -333,7 +338,7 @@ pub fn generate_fo_estimate<'a, 'b: 'a>(
 /// let cf = |u: &Complex<f64>, maturity:f64, params:&[f64]| (u*u*0.5*params[0].powi(2)).exp();
 /// let params=vec![0.0];
 /// let maturity=1.0;
-/// let mean_square_error = option_calibration::obj_fn_arr(
+/// let mean_square_error = option_calibration::obj_fn_cmpl(
 ///     &phi_hat,
 ///     &u_array,
 ///     &params,
@@ -342,7 +347,7 @@ pub fn generate_fo_estimate<'a, 'b: 'a>(
 /// );
 /// # }
 /// ```
-pub fn obj_fn_arr<'a>(
+pub fn obj_fn_cmpl<'a>(
     phi_hat: &[Complex<f64>],
     u_array: &[f64],
     params: &[f64],
@@ -363,6 +368,111 @@ pub fn obj_fn_arr<'a>(
         })
 }
 
+fn get_x_from_option_data_iterator<'a, 'b: 'a>(
+    asset: f64,
+    option_data: &'b [OptionData],
+) -> impl IndexedParallelIterator<Item = f64> + 'a {
+    option_data
+        .par_iter()
+        .map(move |&OptionData { strike, .. }| crate::option_pricing::get_x_from_k(asset, strike))
+}
+fn get_x_range_from_option_data(asset: f64, option_data: &[OptionData]) -> (f64, f64) {
+    let x_min = crate::option_pricing::get_x_from_k(asset, option_data.first().unwrap().strike);
+    let x_max = crate::option_pricing::get_x_from_k(asset, option_data.last().unwrap().strike);
+    (x_min, x_max)
+}
+
+/// Returns function which computes the mean squared error
+/// between the empirical and analytical option prices.
+///
+///
+/// # Examples
+///
+/// ```
+/// extern crate num_complex;
+/// use num_complex::Complex;
+/// extern crate fang_oost_option;
+/// use fang_oost_option::option_calibration;
+/// # fn main() {
+/// let num_u=128;
+/// let cf = |u: &Complex<f64>, _m: f64, _sl: &[f64]| Complex::new(u.im, 0.0);
+/// let arr = vec![
+///     option_calibration::OptionData {
+///         price: 3.0,
+///         strike: 15.0,
+///     },
+///     option_calibration::OptionData {
+///         price: 4.0,
+///         strike: 13.5,
+///     },
+///     option_calibration::OptionData {
+///         price: 5.0,
+///         strike: 11.0,
+///     },
+/// ];
+/// let option_data_mat = vec![option_calibration::OptionDataMaturity {
+///     maturity: 1.0,
+///     option_data: arr,
+/// }];
+/// let params = vec![0.0];
+/// let asset=15.0;
+/// let rate=0.04;
+/// let result = option_calibration::obj_fn_real(&option_data_mat, &params, num_u, asset, rate, &cf);
+/// assert!(result.unwrap().is_finite());
+/// assert!(result.unwrap() > 0.0);
+/// # }
+/// ```
+pub fn obj_fn_real<S>(
+    option_datum: &[OptionDataMaturity],
+    params: &[f64],
+    num_u: usize,
+    asset: f64,
+    rate: f64,
+    cf_function: S, //u, maturity, vector of parameters
+) -> Result<f64, f64>
+where
+    S: Fn(&Complex<f64>, f64, &[f64]) -> Complex<f64> + std::marker::Sync + std::marker::Send,
+{
+    option_datum
+        .par_iter()
+        .map(
+            |OptionDataMaturity {
+                 maturity,
+                 option_data,
+             }| {
+                let discount: f64 = (-rate * maturity).exp();
+                let (x_min, x_max) = get_x_range_from_option_data(asset, option_data);
+                let discrete_cf = crate::option_pricing::fang_oost_discrete_cf(
+                    num_u,
+                    x_min,
+                    x_max,
+                    |cfu, _| crate::option_pricing::option_price_transform(&cfu),
+                    |u| cf_function(u, *maturity, params),
+                );
+                fang_oost::get_expectation_extended(
+                    x_min,
+                    x_max,
+                    get_x_from_option_data_iterator(asset, option_data),
+                    &discrete_cf,
+                    move |u, _, k| {
+                        crate::option_pricing::phi_k(x_min, x_min, 0.0, u, k)
+                            - crate::option_pricing::chi_k(x_min, x_min, 0.0, u)
+                    },
+                )
+                .enumerate()
+                .map(|(index, val)| (val - 1.0) * discount * option_data[index].strike + asset)
+                .zip(option_data)
+                .map(|(value, OptionData { strike, price })| {
+                    let iv = black_scholes::call_iv(*price, asset, *strike, rate, *maturity)?;
+                    let vega = black_scholes::call_vega(asset, *strike, rate, iv, *maturity);
+                    Ok((value - price).powi(2) / vega)
+                })
+                .sum::<Result<f64, f64>>()
+            },
+        )
+        .sum::<Result<f64, f64>>()
+}
+
 #[cfg(test)]
 mod tests {
     use crate::option_calibration::*;
@@ -370,15 +480,15 @@ mod tests {
     #[test]
     fn test_transform_prices() {
         let arr = vec![
-            OptionStats {
+            OptionData {
                 price: 3.0,
                 strike: 3.0,
             },
-            OptionStats {
+            OptionData {
                 price: 4.0,
                 strike: 4.0,
             },
-            OptionStats {
+            OptionData {
                 price: 5.0,
                 strike: 5.0,
             },
@@ -408,66 +518,93 @@ mod tests {
         ];
         let u_arr = vec![6.0, 7.0, 8.0];
         let params = vec![0.0];
-        let result = obj_fn_arr(&arr, &u_arr, &params, 1.0, &cf);
+        let result = obj_fn_cmpl(&arr, &u_arr, &params, 1.0, &cf);
         let expected = 27.0; //3*3^2
         assert_eq!(result, expected);
     }
     #[test]
+    fn test_get_obj_real_one_parameter() {
+        let cf = |u: &Complex<f64>, _m: f64, _sl: &[f64]| Complex::new(u.im, 0.0);
+        let arr = vec![
+            OptionData {
+                price: 3.0,
+                strike: 15.0,
+            },
+            OptionData {
+                price: 4.0,
+                strike: 13.5,
+            },
+            OptionData {
+                price: 5.0,
+                strike: 11.0,
+            },
+        ];
+        let option_data_mat = vec![OptionDataMaturity {
+            maturity: 1.0,
+            option_data: arr,
+        }];
+
+        let params = vec![0.0];
+        let result = obj_fn_real(&option_data_mat, &params, 128, 15.0, 0.05, &cf);
+        assert!(result.unwrap().is_finite());
+        assert!(result.unwrap() > 0.0);
+    }
+    #[test]
     fn test_option_spline() {
-        let tmp_strikes_and_option_prices: Vec<OptionStats> = vec![
-            OptionStats {
+        let tmp_strikes_and_option_prices: Vec<OptionData> = vec![
+            OptionData {
                 strike: 95.0,
                 price: 85.0,
             },
-            OptionStats {
+            OptionData {
                 strike: 130.0,
                 price: 51.5,
             },
-            OptionStats {
+            OptionData {
                 strike: 150.0,
                 price: 35.38,
             },
-            OptionStats {
+            OptionData {
                 strike: 160.0,
                 price: 28.3,
             },
-            OptionStats {
+            OptionData {
                 strike: 165.0,
                 price: 25.2,
             },
-            OptionStats {
+            OptionData {
                 strike: 170.0,
                 price: 22.27,
             },
-            OptionStats {
+            OptionData {
                 strike: 175.0,
                 price: 19.45,
             },
-            OptionStats {
+            OptionData {
                 strike: 185.0,
                 price: 14.77,
             },
-            OptionStats {
+            OptionData {
                 strike: 190.0,
                 price: 12.75,
             },
-            OptionStats {
+            OptionData {
                 strike: 195.0,
                 price: 11.0,
             },
-            OptionStats {
+            OptionData {
                 strike: 200.0,
                 price: 9.35,
             },
-            OptionStats {
+            OptionData {
                 strike: 210.0,
                 price: 6.9,
             },
-            OptionStats {
+            OptionData {
                 strike: 240.0,
                 price: 2.55,
             },
-            OptionStats {
+            OptionData {
                 strike: 250.0,
                 price: 1.88,
             },
@@ -491,60 +628,60 @@ mod tests {
     }
     #[test]
     fn test_option_spline_at_many_values() {
-        let tmp_strikes_and_option_prices: Vec<OptionStats> = vec![
-            OptionStats {
+        let tmp_strikes_and_option_prices: Vec<OptionData> = vec![
+            OptionData {
                 strike: 95.0,
                 price: 85.0,
             },
-            OptionStats {
+            OptionData {
                 strike: 130.0,
                 price: 51.5,
             },
-            OptionStats {
+            OptionData {
                 strike: 150.0,
                 price: 35.38,
             },
-            OptionStats {
+            OptionData {
                 strike: 160.0,
                 price: 28.3,
             },
-            OptionStats {
+            OptionData {
                 strike: 165.0,
                 price: 25.2,
             },
-            OptionStats {
+            OptionData {
                 strike: 170.0,
                 price: 22.27,
             },
-            OptionStats {
+            OptionData {
                 strike: 175.0,
                 price: 19.45,
             },
-            OptionStats {
+            OptionData {
                 strike: 185.0,
                 price: 14.77,
             },
-            OptionStats {
+            OptionData {
                 strike: 190.0,
                 price: 12.75,
             },
-            OptionStats {
+            OptionData {
                 strike: 195.0,
                 price: 11.0,
             },
-            OptionStats {
+            OptionData {
                 strike: 200.0,
                 price: 9.35,
             },
-            OptionStats {
+            OptionData {
                 strike: 210.0,
                 price: 6.9,
             },
-            OptionStats {
+            OptionData {
                 strike: 240.0,
                 price: 2.55,
             },
-            OptionStats {
+            OptionData {
                 strike: 250.0,
                 price: 1.88,
             },
@@ -566,7 +703,7 @@ mod tests {
         });
         tmp_strikes_and_option_prices
             .iter()
-            .for_each(|OptionStats { strike, price, .. }| {
+            .for_each(|OptionData { strike, price, .. }| {
                 let sp_result = spline(strike / asset);
                 assert_abs_diff_eq!(
                     sp_result,
@@ -577,60 +714,60 @@ mod tests {
     }
     #[test]
     fn test_generate_fo_runs() {
-        let tmp_strikes_and_option_prices: Vec<OptionStats> = vec![
-            OptionStats {
+        let tmp_strikes_and_option_prices: Vec<OptionData> = vec![
+            OptionData {
                 strike: 95.0,
                 price: 85.0,
             },
-            OptionStats {
+            OptionData {
                 strike: 130.0,
                 price: 51.5,
             },
-            OptionStats {
+            OptionData {
                 strike: 150.0,
                 price: 35.38,
             },
-            OptionStats {
+            OptionData {
                 strike: 160.0,
                 price: 28.3,
             },
-            OptionStats {
+            OptionData {
                 strike: 165.0,
                 price: 25.2,
             },
-            OptionStats {
+            OptionData {
                 strike: 170.0,
                 price: 22.27,
             },
-            OptionStats {
+            OptionData {
                 strike: 175.0,
                 price: 19.45,
             },
-            OptionStats {
+            OptionData {
                 strike: 185.0,
                 price: 14.77,
             },
-            OptionStats {
+            OptionData {
                 strike: 190.0,
                 price: 12.75,
             },
-            OptionStats {
+            OptionData {
                 strike: 195.0,
                 price: 11.0,
             },
-            OptionStats {
+            OptionData {
                 strike: 200.0,
                 price: 9.35,
             },
-            OptionStats {
+            OptionData {
                 strike: 210.0,
                 price: 6.9,
             },
-            OptionStats {
+            OptionData {
                 strike: 240.0,
                 price: 2.55,
             },
-            OptionStats {
+            OptionData {
                 strike: 250.0,
                 price: 1.88,
             },
@@ -655,60 +792,60 @@ mod tests {
     }
     #[test]
     fn test_generate_fo_accuracy() {
-        let tmp_strikes_and_option_prices: Vec<OptionStats> = vec![
-            OptionStats {
+        let tmp_strikes_and_option_prices: Vec<OptionData> = vec![
+            OptionData {
                 strike: 95.0,
                 price: 85.0,
             },
-            OptionStats {
+            OptionData {
                 strike: 130.0,
                 price: 51.5,
             },
-            OptionStats {
+            OptionData {
                 strike: 150.0,
                 price: 35.38,
             },
-            OptionStats {
+            OptionData {
                 strike: 160.0,
                 price: 28.3,
             },
-            OptionStats {
+            OptionData {
                 strike: 165.0,
                 price: 25.2,
             },
-            OptionStats {
+            OptionData {
                 strike: 170.0,
                 price: 22.27,
             },
-            OptionStats {
+            OptionData {
                 strike: 175.0,
                 price: 19.45,
             },
-            OptionStats {
+            OptionData {
                 strike: 185.0,
                 price: 14.77,
             },
-            OptionStats {
+            OptionData {
                 strike: 190.0,
                 price: 12.75,
             },
-            OptionStats {
+            OptionData {
                 strike: 195.0,
                 price: 11.0,
             },
-            OptionStats {
+            OptionData {
                 strike: 200.0,
                 price: 9.35,
             },
-            OptionStats {
+            OptionData {
                 strike: 210.0,
                 price: 6.9,
             },
-            OptionStats {
+            OptionData {
                 strike: 240.0,
                 price: 2.55,
             },
-            OptionStats {
+            OptionData {
                 strike: 250.0,
                 price: 1.88,
             },
@@ -748,60 +885,60 @@ mod tests {
     }
     #[test]
     fn test_monotone_spline() {
-        let tmp_strikes_and_option_prices: Vec<OptionStats> = vec![
-            OptionStats {
+        let tmp_strikes_and_option_prices: Vec<OptionData> = vec![
+            OptionData {
                 strike: 95.0,
                 price: 85.0,
             },
-            OptionStats {
+            OptionData {
                 strike: 130.0,
                 price: 51.5,
             },
-            OptionStats {
+            OptionData {
                 strike: 150.0,
                 price: 35.38,
             },
-            OptionStats {
+            OptionData {
                 strike: 160.0,
                 price: 28.3,
             },
-            OptionStats {
+            OptionData {
                 strike: 165.0,
                 price: 25.2,
             },
-            OptionStats {
+            OptionData {
                 strike: 170.0,
                 price: 22.27,
             },
-            OptionStats {
+            OptionData {
                 strike: 175.0,
                 price: 19.45,
             },
-            OptionStats {
+            OptionData {
                 strike: 185.0,
                 price: 14.77,
             },
-            OptionStats {
+            OptionData {
                 strike: 190.0,
                 price: 12.75,
             },
-            OptionStats {
+            OptionData {
                 strike: 195.0,
                 price: 11.0,
             },
-            OptionStats {
+            OptionData {
                 strike: 200.0,
                 price: 9.35,
             },
-            OptionStats {
+            OptionData {
                 strike: 210.0,
                 price: 6.9,
             },
-            OptionStats {
+            OptionData {
                 strike: 240.0,
                 price: 2.55,
             },
-            OptionStats {
+            OptionData {
                 strike: 250.0,
                 price: 1.88,
             },

@@ -16,10 +16,11 @@ num-complex = "0.2"
 fang_oost = "0.14.0"
 serde = "1.0"
 serde_derive = "1.0"
+black_scholes = "0.5"
 
 [dev-dependencies]
 approx = "0.2.0"
-black_scholes = "0.2.7"
+
 cf_functions = "0.14.0"
 criterion = "0.2"
 

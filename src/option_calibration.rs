@@ -357,15 +357,15 @@ pub fn obj_fn_cmpl<'a>(
     u_array
         .iter()
         .zip(phi_hat.iter())
-        .fold(0.0, |accumulate, (u, phi)| {
+        .map(|(u, phi)| {
             let result = cf_fn(&Complex::new(1.0, *u), maturity, params);
-            accumulate
-                + if result.re.is_nan() || result.im.is_nan() {
-                    MAX
-                } else {
-                    (phi - result).norm_sqr()
-                }
+            if result.re.is_nan() || result.im.is_nan() {
+                MAX
+            } else {
+                (phi - result).norm_sqr()
+            }
         })
+        .sum()
 }
 
 fn get_x_from_option_data_iterator<'a, 'b: 'a>(
@@ -418,8 +418,8 @@ fn get_x_range_from_option_data(asset: f64, option_data: &[OptionData]) -> (f64,
 /// let asset=15.0;
 /// let rate=0.04;
 /// let result = option_calibration::obj_fn_real(&option_data_mat, &params, num_u, asset, rate, &cf);
-/// assert!(result.unwrap().is_finite());
-/// assert!(result.unwrap() > 0.0);
+/// assert!(result.is_finite());
+/// assert!(result > 0.0);
 /// # }
 /// ```
 pub fn obj_fn_real<S>(
@@ -429,7 +429,7 @@ pub fn obj_fn_real<S>(
     asset: f64,
     rate: f64,
     cf_function: S, //u, maturity, vector of parameters
-) -> Result<f64, f64>
+) -> f64
 where
     S: Fn(&Complex<f64>, f64, &[f64]) -> Complex<f64> + std::marker::Sync + std::marker::Send,
 {
@@ -463,14 +463,22 @@ where
                 .map(|(index, val)| (val - 1.0) * discount * option_data[index].strike + asset)
                 .zip(option_data)
                 .map(|(value, OptionData { strike, price })| {
-                    let iv = black_scholes::call_iv(*price, asset, *strike, rate, *maturity)?;
+                    let iv = black_scholes::call_iv(*price, asset, *strike, rate, *maturity)
+                        .unwrap_or(f64::NAN);
+                    if iv.is_nan() {
+                        return MAX;
+                    }
                     let vega = black_scholes::call_vega(asset, *strike, rate, iv, *maturity);
-                    Ok(((value - price) / vega).powi(2))
+                    if value.is_nan() {
+                        MAX
+                    } else {
+                        ((value - price) / vega).powi(2)
+                    }
                 })
-                .sum::<Result<f64, f64>>()
+                .sum::<f64>()
             },
         )
-        .sum::<Result<f64, f64>>()
+        .sum::<f64>()
 }
 
 #[cfg(test)]
@@ -546,8 +554,8 @@ mod tests {
 
         let params = vec![0.0];
         let result = obj_fn_real(&option_data_mat, &params, 128, 15.0, 0.05, &cf);
-        assert!(result.unwrap().is_finite());
-        assert!(result.unwrap() > 0.0);
+        assert!(result.is_finite());
+        assert!(result > 0.0);
     }
     #[test]
     fn test_option_spline() {

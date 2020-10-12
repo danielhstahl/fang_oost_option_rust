@@ -18,7 +18,7 @@ use rayon::prelude::*;
 use std;
 
 /**For Fang Oost (defined in the paper)*/
-fn chi_k(a: f64, c: f64, d: f64, u: f64) -> f64 {
+pub(crate) fn chi_k(a: f64, c: f64, d: f64, u: f64) -> f64 {
     let iter_s = |x| u * (x - a);
     let exp_d = d.exp();
     let exp_c = c.exp();
@@ -27,7 +27,7 @@ fn chi_k(a: f64, c: f64, d: f64, u: f64) -> f64 {
         / (1.0 + u * u)
 }
 
-fn phi_k(a: f64, c: f64, d: f64, u: f64, k: usize) -> f64 {
+pub(crate) fn phi_k(a: f64, c: f64, d: f64, u: f64, k: usize) -> f64 {
     let iter_s = |x| u * (x - a);
     if k == 0 {
         d - c
@@ -36,7 +36,7 @@ fn phi_k(a: f64, c: f64, d: f64, u: f64, k: usize) -> f64 {
     }
 }
 
-fn get_x_from_k(asset: f64, strike: f64) -> f64 {
+pub(crate) fn get_x_from_k(asset: f64, strike: f64) -> f64 {
     (asset / strike).ln()
 }
 /**This function takes strikes and converts them
@@ -51,7 +51,7 @@ fn get_x_from_k_iterator<'a, 'b: 'a>(
         .map(move |&strike| get_x_from_k(asset, strike))
 }
 
-fn option_price_transform(cf: &Complex<f64>) -> Complex<f64> {
+pub(crate) fn option_price_transform(cf: &Complex<f64>) -> Complex<f64> {
     *cf
 }
 
@@ -71,26 +71,40 @@ fn option_theta_transform(cf: &Complex<f64>, rate: f64) -> Complex<f64> {
     }
 }
 
-fn fang_oost_generic<'a, T, U, S>(
+fn get_x_range_from_strikes(asset: f64, strikes: &[f64]) -> (f64, f64) {
+    let x_min = get_x_from_k(asset, *strikes.first().unwrap());
+    let x_max = get_x_from_k(asset, *strikes.last().unwrap());
+    (x_min, x_max)
+}
+pub(crate) fn fang_oost_discrete_cf<'a, S, T>(
     num_u: usize,
-    asset: f64,
-    strikes: &'a [f64],
+    x_min: f64,
+    x_max: f64,
     enh_cf: T,
-    m_output: U,
     cf: S,
-) -> Vec<f64>
+) -> Vec<Complex<f64>>
 where
     T: Fn(&Complex<f64>, &Complex<f64>) -> Complex<f64>
         + std::marker::Sync
         + std::marker::Send
         + 'a,
-    U: Fn(f64, usize) -> f64 + std::marker::Sync + std::marker::Send + 'a,
     S: Fn(&Complex<f64>) -> Complex<f64> + std::marker::Sync + std::marker::Send + 'a,
 {
-    let x_min = get_x_from_k(asset, *strikes.first().unwrap());
-    let x_max = get_x_from_k(asset, *strikes.last().unwrap());
-    let discrete_cf = fang_oost::get_discrete_cf(num_u, x_min, x_max, |u| enh_cf(&cf(u), u));
-    let results = fang_oost::get_expectation_extended(
+    fang_oost::get_discrete_cf(num_u, x_min, x_max, |u| enh_cf(&cf(u), u))
+}
+
+fn fang_oost_generic<'a, U>(
+    asset: f64,
+    strikes: &'a [f64],
+    x_min: f64,
+    x_max: f64,
+    discrete_cf: &[Complex<f64>],
+    m_output: U,
+) -> Vec<f64>
+where
+    U: Fn(f64, usize) -> f64 + std::marker::Sync + std::marker::Send + 'a,
+{
+    fang_oost::get_expectation_extended(
         x_min,
         x_max,
         get_x_from_k_iterator(asset, strikes),
@@ -99,8 +113,7 @@ where
     )
     .enumerate()
     .map(|(index, result)| m_output(result, index))
-    .collect();
-    results
+    .collect()
 }
 /// Returns call prices for the series of strikes
 /// # Examples
@@ -139,14 +152,17 @@ where
     S: Fn(&Complex<f64>) -> Complex<f64> + std::marker::Sync + std::marker::Send,
 {
     let discount = (-rate * t_maturity).exp();
-    fang_oost_generic(
+    let (x_min, x_max) = get_x_range_from_strikes(asset, strikes);
+    let cf_discrete = fang_oost_discrete_cf(
         num_u,
-        asset,
-        strikes,
+        x_min,
+        x_max,
         |cfu, _| option_price_transform(&cfu),
-        |val, index| (val - 1.0) * discount * strikes[index] + asset,
         cf,
-    )
+    );
+    fang_oost_generic(asset, strikes, x_min, x_max, &cf_discrete, |val, index| {
+        (val - 1.0) * discount * strikes[index] + asset
+    })
 }
 
 /// Returns put prices for the series of strikes
@@ -186,14 +202,17 @@ where
     S: Fn(&Complex<f64>) -> Complex<f64> + std::marker::Sync + std::marker::Send,
 {
     let discount = (-rate * t_maturity).exp();
-    fang_oost_generic(
+    let (x_min, x_max) = get_x_range_from_strikes(asset, strikes);
+    let cf_discrete = fang_oost_discrete_cf(
         num_u,
-        asset,
-        strikes,
+        x_min,
+        x_max,
         |cfu, _| option_price_transform(&cfu),
-        |val, index| val * discount * strikes[index],
         cf,
-    )
+    );
+    fang_oost_generic(asset, strikes, x_min, x_max, &cf_discrete, |val, index| {
+        val * discount * strikes[index]
+    })
 }
 /// Returns delta of a call for the series of strikes
 /// # Examples
@@ -232,14 +251,17 @@ where
     S: Fn(&Complex<f64>) -> Complex<f64> + std::marker::Sync + std::marker::Send,
 {
     let discount = (-rate * t_maturity).exp();
-    fang_oost_generic(
+    let (x_min, x_max) = get_x_range_from_strikes(asset, strikes);
+    let cf_discrete = fang_oost_discrete_cf(
         num_u,
-        asset,
-        strikes,
+        x_min,
+        x_max,
         |cfu, u| option_delta_transform(&cfu, &u),
-        |val, index| val * discount * strikes[index] / asset + 1.0,
         cf,
-    )
+    );
+    fang_oost_generic(asset, strikes, x_min, x_max, &cf_discrete, |val, index| {
+        val * discount * strikes[index] / asset + 1.0
+    })
 }
 /// Returns delta of a put for the series of strikes
 /// # Examples
@@ -278,14 +300,17 @@ where
     S: Fn(&Complex<f64>) -> Complex<f64> + std::marker::Sync + std::marker::Send,
 {
     let discount = (-rate * t_maturity).exp();
-    fang_oost_generic(
+    let (x_min, x_max) = get_x_range_from_strikes(asset, strikes);
+    let cf_discrete = fang_oost_discrete_cf(
         num_u,
-        asset,
-        strikes,
+        x_min,
+        x_max,
         |cfu, u| option_delta_transform(&cfu, &u),
-        |val, index| val * discount * strikes[index] / asset,
         cf,
-    )
+    );
+    fang_oost_generic(asset, strikes, x_min, x_max, &cf_discrete, |val, index| {
+        val * discount * strikes[index] / asset
+    })
 }
 /// Returns theta of a call for the series of strikes
 ///
@@ -331,14 +356,17 @@ where
     S: Fn(&Complex<f64>) -> Complex<f64> + std::marker::Sync + std::marker::Send,
 {
     let discount = (-rate * t_maturity).exp();
-    fang_oost_generic(
+    let (x_min, x_max) = get_x_range_from_strikes(asset, strikes);
+    let cf_discrete = fang_oost_discrete_cf(
         num_u,
-        asset,
-        strikes,
+        x_min,
+        x_max,
         |cfu, _| option_theta_transform(&cfu, rate),
-        |val, index| (val - rate) * discount * strikes[index],
         cf,
-    )
+    );
+    fang_oost_generic(asset, strikes, x_min, x_max, &cf_discrete, |val, index| {
+        (val - rate) * discount * strikes[index]
+    })
 }
 /// Returns theta of a put for the series of strikes
 ///
@@ -384,14 +412,17 @@ where
     S: Fn(&Complex<f64>) -> Complex<f64> + std::marker::Sync + std::marker::Send,
 {
     let discount = (-rate * t_maturity).exp();
-    fang_oost_generic(
+    let (x_min, x_max) = get_x_range_from_strikes(asset, strikes);
+    let cf_discrete = fang_oost_discrete_cf(
         num_u,
-        asset,
-        strikes,
+        x_min,
+        x_max,
         |cfu, _| option_theta_transform(&cfu, rate),
-        |val, index| val * discount * strikes[index],
         cf,
-    )
+    );
+    fang_oost_generic(asset, strikes, x_min, x_max, &cf_discrete, |val, index| {
+        val * discount * strikes[index]
+    })
 }
 /// Returns gamma of a call for the series of strikes
 ///
@@ -431,14 +462,17 @@ where
     S: Fn(&Complex<f64>) -> Complex<f64> + std::marker::Sync + std::marker::Send,
 {
     let discount = (-rate * t_maturity).exp();
-    fang_oost_generic(
+    let (x_min, x_max) = get_x_range_from_strikes(asset, strikes);
+    let cf_discrete = fang_oost_discrete_cf(
         num_u,
-        asset,
-        strikes,
+        x_min,
+        x_max,
         |cfu, u| option_gamma_transform(&cfu, &u),
-        |val, index| val * discount * strikes[index] / (asset * asset),
         cf,
-    )
+    );
+    fang_oost_generic(asset, strikes, x_min, x_max, &cf_discrete, |val, index| {
+        val * discount * strikes[index] / (asset * asset)
+    })
 }
 
 /// Returns gamma of a put for the series of strikes

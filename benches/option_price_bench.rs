@@ -13,11 +13,12 @@ fn bench_call_price(c: &mut Criterion) {
     let bs_cf =
         move |u: &Complex<f64>| ((r - sig * sig * 0.5) * t * u + sig * sig * t * u * u * 0.5).exp();
     let num_u = 64;
-    let k_array = vec![0.01, 30.0, 50.0, 70.0, 300.0];
+    let k_array = vec![30.0, 50.0, 70.0];
+    let max_strike = 300.0;
     c.bench_function("call price", move |b| {
         b.iter(|| {
             fang_oost_option::option_pricing::fang_oost_call_price(
-                num_u, asset, &k_array, r, t, bs_cf,
+                num_u, asset, &k_array, max_strike, r, t, bs_cf,
             )
         })
     });
@@ -30,11 +31,12 @@ fn bench_put_theta(c: &mut Criterion) {
     let bs_cf =
         move |u: &Complex<f64>| ((r - sig * sig * 0.5) * t * u + sig * sig * t * u * u * 0.5).exp();
     let num_u = 64;
-    let k_array = vec![0.01, 30.0, 50.0, 70.0, 300.0];
+    let k_array = vec![30.0, 50.0, 70.0];
+    let max_strike = 300.0;
     c.bench_function("put theta", move |b| {
         b.iter(|| {
             fang_oost_option::option_pricing::fang_oost_put_theta(
-                num_u, asset, &k_array, r, t, bs_cf,
+                num_u, asset, &k_array, max_strike, r, t, bs_cf,
             )
         })
     });

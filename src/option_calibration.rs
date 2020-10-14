@@ -376,11 +376,6 @@ fn get_x_from_option_data_iterator<'a, 'b: 'a>(
         .par_iter()
         .map(move |&OptionData { strike, .. }| crate::option_pricing::get_x_from_k(asset, strike))
 }
-fn get_x_range_from_option_data(asset: f64, option_data: &[OptionData]) -> (f64, f64) {
-    let x_min = crate::option_pricing::get_x_from_k(asset, option_data.first().unwrap().strike);
-    let x_max = crate::option_pricing::get_x_from_k(asset, option_data.last().unwrap().strike);
-    (x_min, x_max)
-}
 
 /// Returns function which computes the mean squared error
 /// between the empirical and analytical option prices.
@@ -415,19 +410,21 @@ fn get_x_range_from_option_data(asset: f64, option_data: &[OptionData]) -> (f64,
 ///     option_data: arr,
 /// }];
 /// let params = vec![0.0];
-/// let asset=15.0;
-/// let rate=0.04;
-/// let result = option_calibration::obj_fn_real(&option_data_mat, &params, num_u, asset, rate, &cf);
+/// let asset = 15.0;
+/// let rate = 0.04;
+/// let max_strike = 300.0;
+/// let result = option_calibration::obj_fn_real(num_u, asset, &option_data_mat, max_strike, rate, &params, &cf);
 /// assert!(result.is_finite());
 /// assert!(result > 0.0);
 /// # }
 /// ```
 pub fn obj_fn_real<S>(
-    option_datum: &[OptionDataMaturity],
-    params: &[f64],
     num_u: usize,
     asset: f64,
+    option_datum: &[OptionDataMaturity],
+    max_strike: f64,
     rate: f64,
+    params: &[f64],
     cf_function: S, //u, maturity, vector of parameters
 ) -> f64
 where
@@ -441,7 +438,7 @@ where
                  option_data,
              }| {
                 let discount: f64 = (-rate * maturity).exp();
-                let (x_min, x_max) = get_x_range_from_option_data(asset, option_data);
+                let (x_min, x_max) = crate::option_pricing::get_x_range(asset, max_strike);
                 let discrete_cf = crate::option_pricing::fang_oost_discrete_cf(
                     num_u,
                     x_min,
@@ -460,8 +457,7 @@ where
                     },
                 )
                 .zip(option_data)
-                .map(|(val, option)| (val - 1.0) * discount * option.strike + asset)
-                .zip(option_data)
+                .map(|(val, option)| ((val - 1.0) * discount * option.strike + asset, option))
                 .map(|(value, OptionData { strike, price })| {
                     let iv = black_scholes::call_iv(*price, asset, *strike, rate, *maturity)
                         .unwrap_or(f64::NAN);
@@ -469,9 +465,6 @@ where
                         return MAX;
                     }
                     let vega = black_scholes::call_vega(asset, *strike, rate, iv, *maturity);
-                    println!("this is value: {}", value);
-                    println!("this is actual price: {}", price);
-                    println!("this is strike: {}", strike);
                     if value.is_nan() {
                         MAX
                     } else {
@@ -556,7 +549,19 @@ mod tests {
         }];
 
         let params = vec![0.0];
-        let result = obj_fn_real(&option_data_mat, &params, 128, 15.0, 0.05, &cf);
+        let num_u = 128;
+        let asset = 15.0;
+        let max_strike = 300.0;
+        let rate = 0.05;
+        let result = obj_fn_real(
+            num_u,
+            asset,
+            &option_data_mat,
+            max_strike,
+            rate,
+            &params,
+            &cf,
+        );
         assert!(result.is_finite());
         assert!(result > 0.0);
     }
@@ -578,20 +583,15 @@ mod tests {
         );
 
         let num_u = 64;
-        let k_array = vec![45.0, 50.0, 55.0];
+        let k_array = vec![55.0, 50.0, 45.0];
         let max_strike = 5000.0;
-        //let strikes = vec![55.0, 50.0, 45.0];
         let my_option_prices = crate::option_pricing::fang_oost_call_price(
             num_u, asset, &k_array, max_strike, r, t, &inst_cf,
         );
-        //let end_index = my_option_prices.len() - 1;
         let observed_strikes_options: Vec<OptionData> = my_option_prices
             .iter()
-            .enumerate()
-            //.filter(|(index, _)| index > &0 && index < &end_index)
-            .rev()
             .zip(k_array.iter())
-            .map(|((_, option), strike)| OptionData {
+            .map(|(option, strike)| OptionData {
                 price: *option,
                 strike: *strike,
             })
@@ -614,8 +614,15 @@ mod tests {
             )(u)
         };
         let guess = vec![lambda, mu_j, sig_j, sig, v0, speed, ada_v, rho];
-        let result = obj_fn_real(&option_data_mat, &guess, num_u, asset, r, &cal_cf);
-        println!("{}", result);
+        let result = obj_fn_real(
+            num_u,
+            asset,
+            &option_data_mat,
+            max_strike,
+            r,
+            &guess,
+            &cal_cf,
+        );
         assert!(result.abs() <= MIN_POSITIVE);
     }
     #[test]

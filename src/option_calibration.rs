@@ -459,8 +459,8 @@ where
                             - crate::option_pricing::chi_k(x_min, x_min, 0.0, u)
                     },
                 )
-                .enumerate()
-                .map(|(index, val)| (val - 1.0) * discount * option_data[index].strike + asset)
+                .zip(option_data)
+                .map(|(val, option)| (val - 1.0) * discount * option.strike + asset)
                 .zip(option_data)
                 .map(|(value, OptionData { strike, price })| {
                     let iv = black_scholes::call_iv(*price, asset, *strike, rate, *maturity)
@@ -469,6 +469,9 @@ where
                         return MAX;
                     }
                     let vega = black_scholes::call_vega(asset, *strike, rate, iv, *maturity);
+                    println!("this is value: {}", value);
+                    println!("this is actual price: {}", price);
+                    println!("this is strike: {}", strike);
                     if value.is_nan() {
                         MAX
                     } else {
@@ -556,6 +559,64 @@ mod tests {
         let result = obj_fn_real(&option_data_mat, &params, 128, 15.0, 0.05, &cf);
         assert!(result.is_finite());
         assert!(result > 0.0);
+    }
+    #[test]
+    fn test_mse_returns_zero_when_exact() {
+        let r = 0.05;
+        let sig = 0.3;
+        let t = 1.0;
+        let asset = 50.0;
+        let lambda = 0.5;
+        let mu_j = 0.05;
+        let sig_j = 0.2;
+        let v0 = 0.8;
+        let speed = 0.5;
+        let ada_v = 0.3;
+        let rho = -0.5;
+        let inst_cf = cf_functions::merton::merton_time_change_cf(
+            t, r, lambda, mu_j, sig_j, sig, v0, speed, ada_v, rho,
+        );
+
+        let num_u = 64;
+        let k_array = vec![45.0, 50.0, 55.0];
+        let max_strike = 5000.0;
+        //let strikes = vec![55.0, 50.0, 45.0];
+        let my_option_prices = crate::option_pricing::fang_oost_call_price(
+            num_u, asset, &k_array, max_strike, r, t, &inst_cf,
+        );
+        //let end_index = my_option_prices.len() - 1;
+        let observed_strikes_options: Vec<OptionData> = my_option_prices
+            .iter()
+            .enumerate()
+            //.filter(|(index, _)| index > &0 && index < &end_index)
+            .rev()
+            .zip(k_array.iter())
+            .map(|((_, option), strike)| OptionData {
+                price: *option,
+                strike: *strike,
+            })
+            .collect();
+        let option_data_mat = vec![OptionDataMaturity {
+            maturity: t,
+            option_data: observed_strikes_options,
+        }];
+        let cal_cf = |u: &Complex<f64>, t: f64, params: &[f64]| {
+            let lambda = params[0];
+            let mu_j = params[1];
+            let sig_j = params[2];
+            let sig = params[3];
+            let v0 = params[4];
+            let speed = params[5];
+            let ada_v = params[6];
+            let rho = params[7];
+            cf_functions::merton::merton_time_change_cf(
+                t, r, lambda, mu_j, sig_j, sig, v0, speed, ada_v, rho,
+            )(u)
+        };
+        let guess = vec![lambda, mu_j, sig_j, sig, v0, speed, ada_v, rho];
+        let result = obj_fn_real(&option_data_mat, &guess, num_u, asset, r, &cal_cf);
+        println!("{}", result);
+        assert!(result.abs() <= MIN_POSITIVE);
     }
     #[test]
     fn test_option_spline() {

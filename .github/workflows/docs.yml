@@ -12,7 +12,7 @@ jobs:
     - name: Run tests stable
       run: cargo test 
     - name: Benchmarks
-      uses: phillyfan1138/gnuplot-action@master
+      uses: danielhstahl/gnuplot-action@master
     - name: Deploy pages
       uses: JamesIves/github-pages-deploy-action@master
       env: 

@@ -24,7 +24,17 @@ extern crate fang_oost_option;
 use fang_oost_option::option_pricing;
 let num_u:usize = 256;
 let asset = 50.0;
-let strikes = vec![5000.0, 75.0, 50.0, 40.0, 0.03];
+let strikes = vec![75.0, 50.0, 40.0];
+// max_strike sets the domain of the empirical estimate.  
+// This should be large enough to capture the potential
+// dynamics of the underlying, but not too large or accuracy
+// will sacrificed.  A good rule of thumb is to scale this
+// in proportion to the volatility of the underlying.  For
+// example, if the underlying is 50.0 and has a (log) 
+// volatility of 0.3, then a good max strike would be
+// exp(0.3*scale)*50.0.  I tend to use scale=10, yielding
+// in this example ~1004.
+let max_strike = 1004.0; 
 let rate = 0.03;
 let t_maturity = 0.5;
 let volatility:f64 = 0.3; 
@@ -33,7 +43,7 @@ let cf = |u: &Complex<f64>| {
     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
 };
 let prices = option_pricing::fang_oost_call_price(
-    num_u, asset, &strikes, 
+    num_u, asset, &strikes, max_strike,
     rate, t_maturity, &cf
 );
 ```

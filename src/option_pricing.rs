@@ -71,9 +71,10 @@ fn option_theta_transform(cf: &Complex<f64>, rate: f64) -> Complex<f64> {
     }
 }
 
-fn get_x_range_from_strikes(asset: f64, strikes: &[f64]) -> (f64, f64) {
-    let x_min = get_x_from_k(asset, *strikes.first().unwrap());
-    let x_max = get_x_from_k(asset, *strikes.last().unwrap());
+pub(crate) fn get_x_range(asset: f64, max_strike: f64) -> (f64, f64) {
+    let min_strike = asset.powi(2) / max_strike;
+    let x_max = get_x_from_k(asset, min_strike); //x and k are inversely related
+    let x_min = get_x_from_k(asset, max_strike); //x and k are inversely related
     (x_min, x_max)
 }
 pub(crate) fn fang_oost_discrete_cf<'a, S, T>(
@@ -102,7 +103,7 @@ fn fang_oost_generic<'a, U>(
     m_output: U,
 ) -> Vec<f64>
 where
-    U: Fn(f64, usize) -> f64 + std::marker::Sync + std::marker::Send + 'a,
+    U: Fn(f64, f64) -> f64 + std::marker::Sync + std::marker::Send + 'a,
 {
     fang_oost::get_expectation_extended(
         x_min,
@@ -111,8 +112,8 @@ where
         &discrete_cf,
         move |u, _, k| phi_k(x_min, x_min, 0.0, u, k) - chi_k(x_min, x_min, 0.0, u),
     )
-    .enumerate()
-    .map(|(index, result)| m_output(result, index))
+    .zip(strikes)
+    .map(|(result, strike)| m_output(result, *strike))
     .collect()
 }
 /// Returns call prices for the series of strikes
@@ -126,16 +127,17 @@ where
 /// # fn main() {
 /// let num_u:usize = 256;
 /// let asset = 50.0;
-/// let strikes = vec![5000.0, 75.0, 50.0, 40.0, 0.03];
+/// let strikes = vec![75.0, 50.0, 40.0];
 /// let rate = 0.03;
 /// let t_maturity = 0.5;
 /// let volatility:f64 = 0.3;
+/// let max_strike = 5000.0; //needs to be "large enough" to integrate over space
 /// //As an example, cf is standard diffusion
 /// let cf = |u: &Complex<f64>| {
 ///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
 /// };
 /// let prices = option_pricing::fang_oost_call_price(
-///     num_u, asset, &strikes,
+///     num_u, asset, &strikes, max_strike,
 ///     rate, t_maturity, &cf
 /// );
 /// # }
@@ -144,6 +146,7 @@ pub fn fang_oost_call_price<'a, S>(
     num_u: usize,
     asset: f64,
     strikes: &'a [f64],
+    max_strike: f64,
     rate: f64,
     t_maturity: f64,
     cf: S,
@@ -152,7 +155,7 @@ where
     S: Fn(&Complex<f64>) -> Complex<f64> + std::marker::Sync + std::marker::Send,
 {
     let discount = (-rate * t_maturity).exp();
-    let (x_min, x_max) = get_x_range_from_strikes(asset, strikes);
+    let (x_min, x_max) = get_x_range(asset, max_strike);
     let cf_discrete = fang_oost_discrete_cf(
         num_u,
         x_min,
@@ -160,8 +163,9 @@ where
         |cfu, _| option_price_transform(&cfu),
         cf,
     );
-    fang_oost_generic(asset, strikes, x_min, x_max, &cf_discrete, |val, index| {
-        (val - 1.0) * discount * strikes[index] + asset
+
+    fang_oost_generic(asset, strikes, x_min, x_max, &cf_discrete, |val, strike| {
+        (val - 1.0) * discount * strike + asset
     })
 }
 
@@ -176,16 +180,17 @@ where
 /// # fn main() {
 /// let num_u:usize = 256;
 /// let asset = 50.0;
-/// let strikes = vec![5000.0, 75.0, 50.0, 40.0, 0.03];
+/// let strikes = vec![75.0, 50.0, 40.0];
 /// let rate = 0.03;
 /// let t_maturity = 0.5;
 /// let volatility:f64 = 0.3;
+/// let max_strike = 5000.0; //needs to be "large enough" to integrate over space
 /// //As an example, cf is standard diffusion
 /// let cf = |u: &Complex<f64>| {
 ///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
 /// };
 /// let prices = option_pricing::fang_oost_put_price(
-///     num_u, asset, &strikes,
+///     num_u, asset, &strikes, max_strike,
 ///     rate, t_maturity, &cf
 /// );
 /// # }
@@ -194,6 +199,7 @@ pub fn fang_oost_put_price<'a, S>(
     num_u: usize,
     asset: f64,
     strikes: &'a [f64],
+    max_strike: f64,
     rate: f64,
     t_maturity: f64,
     cf: S,
@@ -202,7 +208,7 @@ where
     S: Fn(&Complex<f64>) -> Complex<f64> + std::marker::Sync + std::marker::Send,
 {
     let discount = (-rate * t_maturity).exp();
-    let (x_min, x_max) = get_x_range_from_strikes(asset, strikes);
+    let (x_min, x_max) = get_x_range(asset, max_strike);
     let cf_discrete = fang_oost_discrete_cf(
         num_u,
         x_min,
@@ -210,8 +216,8 @@ where
         |cfu, _| option_price_transform(&cfu),
         cf,
     );
-    fang_oost_generic(asset, strikes, x_min, x_max, &cf_discrete, |val, index| {
-        val * discount * strikes[index]
+    fang_oost_generic(asset, strikes, x_min, x_max, &cf_discrete, |val, strike| {
+        val * discount * strike
     })
 }
 /// Returns delta of a call for the series of strikes
@@ -225,16 +231,17 @@ where
 /// # fn main() {
 /// let num_u:usize = 256;
 /// let asset = 50.0;
-/// let strikes = vec![5000.0, 75.0, 50.0, 40.0, 0.03];
+/// let strikes = vec![75.0, 50.0, 40.0];
 /// let rate = 0.03;
 /// let t_maturity = 0.5;
 /// let volatility:f64 = 0.3;
+/// let max_strike = 5000.0; //needs to be "large enough" to integrate over space
 /// //As an example, cf is standard diffusion
 /// let cf = |u: &Complex<f64>| {
 ///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
 /// };
 /// let deltas = option_pricing::fang_oost_call_delta(
-///     num_u, asset, &strikes,
+///     num_u, asset, &strikes, max_strike,
 ///     rate, t_maturity, &cf
 /// );
 /// # }
@@ -243,6 +250,7 @@ pub fn fang_oost_call_delta<'a, S>(
     num_u: usize,
     asset: f64,
     strikes: &'a [f64],
+    max_strike: f64,
     rate: f64,
     t_maturity: f64,
     cf: S,
@@ -251,7 +259,7 @@ where
     S: Fn(&Complex<f64>) -> Complex<f64> + std::marker::Sync + std::marker::Send,
 {
     let discount = (-rate * t_maturity).exp();
-    let (x_min, x_max) = get_x_range_from_strikes(asset, strikes);
+    let (x_min, x_max) = get_x_range(asset, max_strike);
     let cf_discrete = fang_oost_discrete_cf(
         num_u,
         x_min,
@@ -259,8 +267,8 @@ where
         |cfu, u| option_delta_transform(&cfu, &u),
         cf,
     );
-    fang_oost_generic(asset, strikes, x_min, x_max, &cf_discrete, |val, index| {
-        val * discount * strikes[index] / asset + 1.0
+    fang_oost_generic(asset, strikes, x_min, x_max, &cf_discrete, |val, strike| {
+        val * discount * strike / asset + 1.0
     })
 }
 /// Returns delta of a put for the series of strikes
@@ -274,16 +282,17 @@ where
 /// # fn main() {
 /// let num_u:usize = 256;
 /// let asset = 50.0;
-/// let strikes = vec![5000.0, 75.0, 50.0, 40.0, 0.03];
+/// let strikes = vec![75.0, 50.0, 40.0];
 /// let rate = 0.03;
 /// let t_maturity = 0.5;
 /// let volatility:f64 = 0.3;
+/// let max_strike = 5000.0; //needs to be "large enough" to integrate over space
 /// //As an example, cf is standard diffusion
 /// let cf = |u: &Complex<f64>| {
 ///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
 /// };
 /// let deltas = option_pricing::fang_oost_put_delta(
-///     num_u, asset, &strikes,
+///     num_u, asset, &strikes, max_strike,
 ///     rate, t_maturity, &cf
 /// );
 /// # }
@@ -292,6 +301,7 @@ pub fn fang_oost_put_delta<'a, S>(
     num_u: usize,
     asset: f64,
     strikes: &'a [f64],
+    max_strike: f64,
     rate: f64,
     t_maturity: f64,
     cf: S,
@@ -300,7 +310,7 @@ where
     S: Fn(&Complex<f64>) -> Complex<f64> + std::marker::Sync + std::marker::Send,
 {
     let discount = (-rate * t_maturity).exp();
-    let (x_min, x_max) = get_x_range_from_strikes(asset, strikes);
+    let (x_min, x_max) = get_x_range(asset, max_strike);
     let cf_discrete = fang_oost_discrete_cf(
         num_u,
         x_min,
@@ -308,8 +318,8 @@ where
         |cfu, u| option_delta_transform(&cfu, &u),
         cf,
     );
-    fang_oost_generic(asset, strikes, x_min, x_max, &cf_discrete, |val, index| {
-        val * discount * strikes[index] / asset
+    fang_oost_generic(asset, strikes, x_min, x_max, &cf_discrete, |val, strike| {
+        val * discount * strike / asset
     })
 }
 /// Returns theta of a call for the series of strikes
@@ -330,16 +340,17 @@ where
 /// # fn main() {
 /// let num_u:usize = 256;
 /// let asset = 50.0;
-/// let strikes = vec![5000.0, 75.0, 50.0, 40.0, 0.03];
+/// let strikes = vec![75.0, 50.0, 40.0];
 /// let rate = 0.03;
 /// let t_maturity = 0.5;
 /// let volatility:f64 = 0.3;
+/// let max_strike = 5000.0; //needs to be "large enough" to integrate over space
 /// //As an example, cf is standard diffusion
 /// let cf = |u: &Complex<f64>| {
 ///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
 /// };
 /// let deltas = option_pricing::fang_oost_call_theta(
-///     num_u, asset, &strikes,
+///     num_u, asset, &strikes, max_strike,
 ///     rate, t_maturity, &cf
 /// );
 /// # }
@@ -348,6 +359,7 @@ pub fn fang_oost_call_theta<'a, S>(
     num_u: usize,
     asset: f64,
     strikes: &'a [f64],
+    max_strike: f64,
     rate: f64,
     t_maturity: f64,
     cf: S,
@@ -356,7 +368,7 @@ where
     S: Fn(&Complex<f64>) -> Complex<f64> + std::marker::Sync + std::marker::Send,
 {
     let discount = (-rate * t_maturity).exp();
-    let (x_min, x_max) = get_x_range_from_strikes(asset, strikes);
+    let (x_min, x_max) = get_x_range(asset, max_strike);
     let cf_discrete = fang_oost_discrete_cf(
         num_u,
         x_min,
@@ -364,8 +376,8 @@ where
         |cfu, _| option_theta_transform(&cfu, rate),
         cf,
     );
-    fang_oost_generic(asset, strikes, x_min, x_max, &cf_discrete, |val, index| {
-        (val - rate) * discount * strikes[index]
+    fang_oost_generic(asset, strikes, x_min, x_max, &cf_discrete, |val, strike| {
+        (val - rate) * discount * strike
     })
 }
 /// Returns theta of a put for the series of strikes
@@ -386,7 +398,8 @@ where
 /// # fn main() {
 /// let num_u:usize = 256;
 /// let asset = 50.0;
-/// let strikes = vec![5000.0, 75.0, 50.0, 40.0, 0.03];
+/// let strikes = vec![75.0, 50.0, 40.0];
+/// let max_strike = 5000.0; //needs to be "large enough" to integrate over space
 /// let rate = 0.03;
 /// let t_maturity = 0.5;
 /// let volatility:f64 = 0.3;
@@ -395,7 +408,7 @@ where
 ///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
 /// };
 /// let deltas = option_pricing::fang_oost_put_theta(
-///     num_u, asset, &strikes,
+///     num_u, asset, &strikes, max_strike,
 ///     rate, t_maturity, &cf
 /// );
 /// # }
@@ -404,6 +417,7 @@ pub fn fang_oost_put_theta<'a, S>(
     num_u: usize,
     asset: f64,
     strikes: &'a [f64],
+    max_strike: f64,
     rate: f64,
     t_maturity: f64,
     cf: S,
@@ -412,7 +426,7 @@ where
     S: Fn(&Complex<f64>) -> Complex<f64> + std::marker::Sync + std::marker::Send,
 {
     let discount = (-rate * t_maturity).exp();
-    let (x_min, x_max) = get_x_range_from_strikes(asset, strikes);
+    let (x_min, x_max) = get_x_range(asset, max_strike);
     let cf_discrete = fang_oost_discrete_cf(
         num_u,
         x_min,
@@ -420,8 +434,8 @@ where
         |cfu, _| option_theta_transform(&cfu, rate),
         cf,
     );
-    fang_oost_generic(asset, strikes, x_min, x_max, &cf_discrete, |val, index| {
-        val * discount * strikes[index]
+    fang_oost_generic(asset, strikes, x_min, x_max, &cf_discrete, |val, strike| {
+        val * discount * strike
     })
 }
 /// Returns gamma of a call for the series of strikes
@@ -436,16 +450,17 @@ where
 /// # fn main() {
 /// let num_u:usize = 256;
 /// let asset = 50.0;
-/// let strikes = vec![5000.0, 75.0, 50.0, 40.0, 0.03];
+/// let strikes = vec![75.0, 50.0, 40.0];
 /// let rate = 0.03;
 /// let t_maturity = 0.5;
 /// let volatility:f64 = 0.3;
+/// let max_strike = 5000.0; //needs to be "large enough" to integrate over space
 /// //As an example, cf is standard diffusion
 /// let cf = |u: &Complex<f64>| {
 ///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
 /// };
 /// let deltas = option_pricing::fang_oost_call_gamma(
-///     num_u, asset, &strikes,
+///     num_u, asset, &strikes, max_strike,
 ///     rate, t_maturity, &cf
 /// );
 /// # }
@@ -454,6 +469,7 @@ pub fn fang_oost_call_gamma<'a, S>(
     num_u: usize,
     asset: f64,
     strikes: &'a [f64],
+    max_strike: f64,
     rate: f64,
     t_maturity: f64,
     cf: S,
@@ -462,7 +478,7 @@ where
     S: Fn(&Complex<f64>) -> Complex<f64> + std::marker::Sync + std::marker::Send,
 {
     let discount = (-rate * t_maturity).exp();
-    let (x_min, x_max) = get_x_range_from_strikes(asset, strikes);
+    let (x_min, x_max) = get_x_range(asset, max_strike);
     let cf_discrete = fang_oost_discrete_cf(
         num_u,
         x_min,
@@ -470,8 +486,8 @@ where
         |cfu, u| option_gamma_transform(&cfu, &u),
         cf,
     );
-    fang_oost_generic(asset, strikes, x_min, x_max, &cf_discrete, |val, index| {
-        val * discount * strikes[index] / (asset * asset)
+    fang_oost_generic(asset, strikes, x_min, x_max, &cf_discrete, |val, strike| {
+        val * discount * strike / asset.powi(2)
     })
 }
 
@@ -492,16 +508,17 @@ where
 /// # fn main() {
 /// let num_u:usize = 256;
 /// let asset = 50.0;
-/// let strikes = vec![5000.0, 75.0, 50.0, 40.0, 0.03];
+/// let strikes = vec![75.0, 50.0, 40.0];
 /// let rate = 0.03;
 /// let t_maturity = 0.5;
 /// let volatility:f64 = 0.3;
+/// let max_strike = 5000.0; //needs to be "large enough" to integrate over space
 /// //As an example, cf is standard diffusion
 /// let cf = |u: &Complex<f64>| {
 ///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
 /// };
 /// let deltas = option_pricing::fang_oost_put_gamma(
-///     num_u, asset, &strikes,
+///     num_u, asset, &strikes, max_strike,
 ///     rate, t_maturity, &cf
 /// );
 /// # }
@@ -510,6 +527,7 @@ pub fn fang_oost_put_gamma<'a, S>(
     num_u: usize,
     asset: f64,
     strikes: &'a [f64],
+    max_strike: f64,
     rate: f64,
     t_maturity: f64,
     cf: S,
@@ -517,7 +535,7 @@ pub fn fang_oost_put_gamma<'a, S>(
 where
     S: Fn(&Complex<f64>) -> Complex<f64> + std::marker::Sync + std::marker::Send,
 {
-    fang_oost_call_gamma(num_u, asset, &strikes, rate, t_maturity, cf)
+    fang_oost_call_gamma(num_u, asset, &strikes, max_strike, rate, t_maturity, cf)
 }
 
 #[cfg(test)]
@@ -537,6 +555,59 @@ mod tests {
     }
 
     #[test]
+    fn test_generator() {
+        let asset = 50.0;
+        let strikes = vec![30.0, 40.0, 50.0, 60.0, 70.0];
+        //let (x_min, x_max) = get_x_range(asset, 7000.0);
+        let result: Vec<f64> = get_x_from_k_iterator(asset, &strikes).collect();
+        let expected = vec![
+            //12.765688433465597,
+            0.5108256237659907,
+            0.22314355131420976,
+            0.0,
+            -0.1823215567939546,
+            -0.3364722366212129,
+            //-4.941642422609305,
+        ];
+        for (res, ex) in result.iter().zip(expected) {
+            assert_eq!(res, &ex);
+        }
+    }
+
+    #[test]
+    fn test_get_x_range() {
+        let asset = 50.0;
+        let (x_min, x_max) = get_x_range(asset, 5000.0);
+        assert_abs_diff_eq!(x_min, -x_max, epsilon = 0.000001); //should be symmetric
+    }
+    #[test]
+    fn test_get_x_range_2() {
+        let asset = 100.0;
+        let (x_min, x_max) = get_x_range(asset, 7500.0);
+        assert_abs_diff_eq!(x_min, -x_max, epsilon = 0.000001); //should be symmetric
+    }
+    #[test]
+    fn test_fang_oost_call_price_other_direction() {
+        let r = 0.05;
+        let sig = 0.3;
+        let t = 1.0;
+        let asset = 50.0;
+        let bs_cf =
+            |u: &Complex<f64>| ((r - sig * sig * 0.5) * t * u + sig * sig * t * u * u * 0.5).exp();
+        let max_strike = 7000.0;
+        let num_u = 64;
+        let k_array = vec![45.0, 50.0, 55.0];
+        let my_option_price = fang_oost_call_price(num_u, asset, &k_array, max_strike, r, t, bs_cf);
+        for i in 0..k_array.len() {
+            assert_abs_diff_eq!(
+                black_scholes::call(asset, k_array[i], r, sig, t),
+                my_option_price[i],
+                epsilon = 0.001
+            );
+        }
+    }
+
+    #[test]
     fn test_fang_oost_call_price() {
         let r = 0.05;
         let sig = 0.3;
@@ -544,14 +615,13 @@ mod tests {
         let asset = 50.0;
         let bs_cf =
             |u: &Complex<f64>| ((r - sig * sig * 0.5) * t * u + sig * sig * t * u * u * 0.5).exp();
-        let x_max = 5.0;
+        let x_max = 2.0;
+        let max_strike = 7000.0;
         let num_x = (2 as usize).pow(10);
         let num_u = 64;
         let k_array = get_fang_oost_strike(-x_max, x_max, asset, num_x);
-        let my_option_price = fang_oost_call_price(num_u, asset, &k_array, r, t, bs_cf);
-        let min_n = num_x / 4;
-        let max_n = num_x - num_x / 4;
-        for i in min_n..max_n {
+        let my_option_price = fang_oost_call_price(num_u, asset, &k_array, max_strike, r, t, bs_cf);
+        for i in 0..num_x {
             assert_abs_diff_eq!(
                 black_scholes::call(asset, k_array[i], r, sig, t),
                 my_option_price[i],
@@ -577,11 +647,13 @@ mod tests {
         );
 
         let num_u = 64;
-        let k_array = vec![5000.0, 45.0, 50.0, 55.0, 0.00001];
-        let my_option_price = fang_oost_call_price(num_u, asset, &k_array, r, t, inst_cf);
+        let k_array = vec![45.0, 50.0, 55.0];
+        let max_strike = 5000.0;
+        let my_option_price =
+            fang_oost_call_price(num_u, asset, &k_array, max_strike, r, t, inst_cf);
+        assert_eq!(my_option_price[0] > 0.0 && my_option_price[0] < asset, true);
         assert_eq!(my_option_price[1] > 0.0 && my_option_price[1] < asset, true);
         assert_eq!(my_option_price[2] > 0.0 && my_option_price[2] < asset, true);
-        assert_eq!(my_option_price[3] > 0.0 && my_option_price[3] < asset, true);
     }
     #[test]
     fn test_fang_oost_put_price() {
@@ -591,14 +663,13 @@ mod tests {
         let asset = 50.0;
         let bs_cf =
             |u: &Complex<f64>| ((r - sig * sig * 0.5) * t * u + sig * sig * t * u * u * 0.5).exp();
-        let x_max = 5.0;
+        let x_max = 2.0;
         let num_x = (2 as usize).pow(10);
         let num_u = 64;
+        let max_strike = 7000.0;
         let k_array = get_fang_oost_strike(-x_max, x_max, asset, num_x);
-        let my_option_price = fang_oost_put_price(num_u, asset, &k_array, r, t, bs_cf);
-        let min_n = num_x / 4;
-        let max_n = num_x - num_x / 4;
-        for i in min_n..max_n {
+        let my_option_price = fang_oost_put_price(num_u, asset, &k_array, max_strike, r, t, bs_cf);
+        for i in 0..num_x {
             assert_abs_diff_eq!(
                 black_scholes::put(asset, k_array[i], r, sig, t),
                 my_option_price[i],
@@ -614,14 +685,13 @@ mod tests {
         let asset = 50.0;
         let bs_cf =
             |u: &Complex<f64>| ((r - sig * sig * 0.5) * t * u + sig * sig * t * u * u * 0.5).exp();
-        let x_max = 5.0;
+        let x_max = 2.0;
         let num_x = (2 as usize).pow(10);
+        let max_strike = 7000.0;
         let num_u = 64;
         let k_array = get_fang_oost_strike(-x_max, x_max, asset, num_x);
-        let my_option_price = fang_oost_call_delta(num_u, asset, &k_array, r, t, bs_cf);
-        let min_n = num_x / 4;
-        let max_n = num_x - num_x / 4;
-        for i in min_n..max_n {
+        let my_option_price = fang_oost_call_delta(num_u, asset, &k_array, max_strike, r, t, bs_cf);
+        for i in 0..num_x {
             assert_abs_diff_eq!(
                 black_scholes::call_delta(asset, k_array[i], r, sig, t),
                 my_option_price[i],
@@ -637,14 +707,13 @@ mod tests {
         let asset = 50.0;
         let bs_cf =
             |u: &Complex<f64>| ((r - sig * sig * 0.5) * t * u + sig * sig * t * u * u * 0.5).exp();
-        let x_max = 5.0;
+        let x_max = 2.0;
         let num_x = (2 as usize).pow(10);
+        let max_strike = 7000.0;
         let num_u = 64;
         let k_array = get_fang_oost_strike(-x_max, x_max, asset, num_x);
-        let my_option_price = fang_oost_put_delta(num_u, asset, &k_array, r, t, bs_cf);
-        let min_n = num_x / 4;
-        let max_n = num_x - num_x / 4;
-        for i in min_n..max_n {
+        let my_option_price = fang_oost_put_delta(num_u, asset, &k_array, max_strike, r, t, bs_cf);
+        for i in 0..num_x {
             assert_abs_diff_eq!(
                 black_scholes::put_delta(asset, k_array[i], r, sig, t),
                 my_option_price[i],
@@ -660,14 +729,14 @@ mod tests {
         let asset = 50.0;
         let bs_cf =
             |u: &Complex<f64>| ((r - sig * sig * 0.5) * t * u + sig * sig * t * u * u * 0.5).exp();
-        let x_max = 5.0;
+        let x_max = 2.0;
         let num_x = (2 as usize).pow(10);
+        let max_strike = 7000.0;
         let num_u = 64;
         let k_array = get_fang_oost_strike(-x_max, x_max, asset, num_x);
-        let my_option_price = fang_oost_call_gamma(num_u, asset, &k_array, r, t, bs_cf);
-        let min_n = num_x / 4;
-        let max_n = num_x - num_x / 4;
-        for i in min_n..max_n {
+        let my_option_price = fang_oost_call_gamma(num_u, asset, &k_array, max_strike, r, t, bs_cf);
+
+        for i in 0..num_x {
             assert_abs_diff_eq!(
                 black_scholes::call_gamma(asset, k_array[i], r, sig, t),
                 my_option_price[i],
@@ -683,14 +752,13 @@ mod tests {
         let asset = 50.0;
         let bs_cf =
             |u: &Complex<f64>| ((r - sig * sig * 0.5) * t * u + sig * sig * t * u * u * 0.5).exp();
-        let x_max = 5.0;
+        let x_max = 2.0;
         let num_x = (2 as usize).pow(10);
+        let max_strike = 7000.0;
         let num_u = 64;
         let k_array = get_fang_oost_strike(-x_max, x_max, asset, num_x);
-        let my_option_price = fang_oost_put_gamma(num_u, asset, &k_array, r, t, bs_cf);
-        let min_n = num_x / 4;
-        let max_n = num_x - num_x / 4;
-        for i in min_n..max_n {
+        let my_option_price = fang_oost_put_gamma(num_u, asset, &k_array, max_strike, r, t, bs_cf);
+        for i in 0..num_x {
             assert_abs_diff_eq!(
                 black_scholes::put_gamma(asset, k_array[i], r, sig, t),
                 my_option_price[i],
@@ -706,14 +774,13 @@ mod tests {
         let asset = 50.0;
         let bs_cf =
             |u: &Complex<f64>| ((r - sig * sig * 0.5) * t * u + sig * sig * t * u * u * 0.5).exp();
-        let x_max = 5.0;
+        let x_max = 2.0;
         let num_x = (2 as usize).pow(10);
+        let max_strike = 7000.0;
         let num_u = 64;
         let k_array = get_fang_oost_strike(-x_max, x_max, asset, num_x);
-        let my_option_price = fang_oost_call_theta(num_u, asset, &k_array, r, t, bs_cf);
-        let min_n = num_x / 4;
-        let max_n = num_x - num_x / 4;
-        for i in min_n..max_n {
+        let my_option_price = fang_oost_call_theta(num_u, asset, &k_array, max_strike, r, t, bs_cf);
+        for i in 0..num_x {
             assert_abs_diff_eq!(
                 black_scholes::call_theta(asset, k_array[i], r, sig, t),
                 my_option_price[i],
@@ -729,14 +796,13 @@ mod tests {
         let asset = 50.0;
         let bs_cf =
             |u: &Complex<f64>| ((r - sig * sig * 0.5) * t * u + sig * sig * t * u * u * 0.5).exp();
-        let x_max = 5.0;
+        let x_max = 2.0;
         let num_x = (2 as usize).pow(10);
+        let max_strike = 7000.0;
         let num_u = 64;
         let k_array = get_fang_oost_strike(-x_max, x_max, asset, num_x);
-        let my_option_price = fang_oost_put_theta(num_u, asset, &k_array, r, t, bs_cf);
-        let min_n = num_x / 4;
-        let max_n = num_x - num_x / 4;
-        for i in min_n..max_n {
+        let my_option_price = fang_oost_put_theta(num_u, asset, &k_array, max_strike, r, t, bs_cf);
+        for i in 0..num_x {
             assert_abs_diff_eq!(
                 black_scholes::put_theta(asset, k_array[i], r, sig, t),
                 my_option_price[i],
@@ -750,7 +816,8 @@ mod tests {
         //https://cs.uwaterloo.ca/~paforsyt/levy.pdf pg 19
         //S K T r q σ C G M Y
         //90 98 0.25 0.06 0.0 0.0 16.97 7.08 29.97 0.6442
-        let k_array = vec![7500.0, 98.0, 0.3];
+        let k_array = vec![98.0];
+        let max_strike = 7500.0;
         let r = 0.06;
         let sig = 0.0;
         let t = 0.25;
@@ -764,9 +831,9 @@ mod tests {
         };
 
         let num_u = 256 as usize;
-        let options_price = fang_oost_call_price(num_u, s0, &k_array, r, t, cgmy_cf);
+        let options_price = fang_oost_call_price(num_u, s0, &k_array, max_strike, r, t, cgmy_cf);
         let reference_price = 16.212478; //https://cs.uwaterloo.ca/~paforsyt/levy.pdf pg 19
-        assert_abs_diff_eq!(options_price[1], reference_price, epsilon = 0.001);
+        assert_abs_diff_eq!(options_price[0], reference_price, epsilon = 0.001);
     }
 
     #[test]
@@ -774,7 +841,8 @@ mod tests {
         //http://ta.twi.tudelft.nl/mf/users/oosterle/oosterlee/COS.pdf pg 19
         //S0 = 100, K = 100, r = 0.1, q = 0, C = 1, G = 5, M = 5, T = 1
         //= 19.812948843
-        let k_array = vec![7500.0, 100.0, 0.3];
+        let k_array = vec![100.0];
+        let max_strike = 7500.0; //0.3?
         let r = 0.1;
         let sig = 0.0;
         let t = 1.0;
@@ -788,9 +856,9 @@ mod tests {
         };
 
         let num_u = 64 as usize;
-        let options_price = fang_oost_call_price(num_u, s0, &k_array, r, t, cgmy_cf);
+        let options_price = fang_oost_call_price(num_u, s0, &k_array, max_strike, r, t, cgmy_cf);
         let reference_price = 19.812948843;
-        assert_abs_diff_eq!(options_price[1], reference_price, epsilon = 0.00001);
+        assert_abs_diff_eq!(options_price[0], reference_price, epsilon = 0.00001);
     }
 
     #[test]
@@ -811,8 +879,8 @@ mod tests {
         let v0_hat = v0 / b;
         let eta_v = c / b.sqrt();
 
-        let k_array = vec![7500.0, 100.0, 0.3];
-
+        let k_array = vec![100.0];
+        let max_strike = 7500.0;
         let heston_cf = |u: &Complex<f64>| {
             let cmp_mu =
                 -cf_functions::merton::merton_log_risk_neutral_cf(u, 0.0, 1.0, 1.0, 0.0, sig);
@@ -823,8 +891,8 @@ mod tests {
         };
 
         let num_u = 256 as usize;
-        let options_price = fang_oost_call_price(num_u, s0, &k_array, r, t, heston_cf);
+        let options_price = fang_oost_call_price(num_u, s0, &k_array, max_strike, r, t, heston_cf);
         let reference_price = 5.78515545;
-        assert_abs_diff_eq!(options_price[1], reference_price, epsilon = 0.00001);
+        assert_abs_diff_eq!(options_price[0], reference_price, epsilon = 0.00001);
     }
 }

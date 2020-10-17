@@ -425,12 +425,14 @@ pub fn obj_fn_real<S>(
     max_strike: f64,
     rate: f64,
     params: &[f64],
-    cf_function: S, //u, maturity, vector of parameters
+    cf_function: S,
 ) -> f64
 where
-    S: Fn(&Complex<f64>, f64, &[f64]) -> Complex<f64> + std::marker::Sync + std::marker::Send,
+    S: Fn(&Complex<f64>, f64, &[f64] /*u, maturity, vector of parameters*/) -> Complex<f64>
+        + std::marker::Sync
+        + std::marker::Send,
 {
-    option_datum
+    let total_cost = option_datum
         .par_iter()
         .map(
             |OptionDataMaturity {
@@ -446,6 +448,7 @@ where
                     |cfu, _| crate::option_pricing::option_price_transform(&cfu),
                     |u| cf_function(u, *maturity, params),
                 );
+
                 fang_oost::get_expectation_extended(
                     x_min,
                     x_max,
@@ -474,7 +477,12 @@ where
                 .sum::<f64>()
             },
         )
-        .sum::<f64>()
+        .sum::<f64>();
+    let total_count = option_datum
+        .iter()
+        .map(|OptionDataMaturity { option_data, .. }| option_data.len())
+        .sum::<usize>();
+    total_cost / (total_count as f64)
 }
 
 #[cfg(test)]

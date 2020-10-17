@@ -436,7 +436,7 @@ where
         + std::marker::Send,
     U: Fn(&[f64], f64) -> f64 + std::marker::Sync + std::marker::Send,
 {
-    let scale_function = 10000.0; //to multiple end result to avoid numerical issues
+    let scale_function = 1000.0; //to multiple end result to avoid numerical issues
     let total_cost = option_datum
         .par_iter()
         .map(

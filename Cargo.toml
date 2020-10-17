@@ -1,6 +1,6 @@
 [package]
 name = "fang_oost_option"
-version = "0.30.2"
+version = "0.30.3"
 authors = ["Daniel Stahl <danstahl1138@gmail.com>"]
 homepage = "https://github.com/phillyfan1138/fang_oost_option_rust"
 repository = "https://github.com/phillyfan1138/fang_oost_option_rust"

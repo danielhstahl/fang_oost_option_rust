@@ -413,24 +413,28 @@ fn get_x_from_option_data_iterator<'a, 'b: 'a>(
 /// let asset = 15.0;
 /// let rate = 0.04;
 /// let max_strike = 300.0;
-/// let result = option_calibration::obj_fn_real(num_u, asset, &option_data_mat, max_strike, rate, &params, &cf);
+/// let result = option_calibration::obj_fn_real(
+///     num_u, asset, &option_data_mat,
+///     rate, &params, |_p, _m| max_strike, &cf
+/// );
 /// assert!(result.is_finite());
 /// assert!(result > 0.0);
 /// # }
 /// ```
-pub fn obj_fn_real<S>(
+pub fn obj_fn_real<S, U>(
     num_u: usize,
     asset: f64,
     option_datum: &[OptionDataMaturity],
-    max_strike: f64,
     rate: f64,
     params: &[f64],
+    get_max_strike: U,
     cf_function: S,
 ) -> f64
 where
     S: Fn(&Complex<f64>, f64, &[f64] /*u, maturity, vector of parameters*/) -> Complex<f64>
         + std::marker::Sync
         + std::marker::Send,
+    U: Fn(&[f64], f64) -> f64 + std::marker::Sync + std::marker::Send,
 {
     let scale_function = 10000.0; //to multiple end result to avoid numerical issues
     let total_cost = option_datum
@@ -441,6 +445,7 @@ where
                  option_data,
              }| {
                 let discount: f64 = (-rate * maturity).exp();
+                let max_strike = get_max_strike(&params, *maturity);
                 let (x_min, x_max) = crate::option_pricing::get_x_range(asset, max_strike);
                 let discrete_cf = crate::option_pricing::fang_oost_discrete_cf(
                     num_u,
@@ -566,9 +571,9 @@ mod tests {
             num_u,
             asset,
             &option_data_mat,
-            max_strike,
             rate,
             &params,
+            |_params, _maturity| max_strike,
             &cf,
         );
         assert!(result.is_finite());
@@ -627,9 +632,9 @@ mod tests {
             num_u,
             asset,
             &option_data_mat,
-            max_strike,
             r,
             &guess,
+            |_params, _maturity| max_strike,
             &cal_cf,
         );
         assert!(result.abs() <= MIN_POSITIVE);

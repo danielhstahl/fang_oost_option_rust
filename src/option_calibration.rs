@@ -436,7 +436,6 @@ where
         + std::marker::Send,
     U: Fn(&[f64], f64) -> f64 + std::marker::Sync + std::marker::Send,
 {
-    let scale_function = 1000.0; //to multiple end result to avoid numerical issues
     let total_cost = option_datum
         .par_iter()
         .map(
@@ -488,7 +487,7 @@ where
         .iter()
         .map(|OptionDataMaturity { option_data, .. }| option_data.len())
         .sum::<usize>();
-    (total_cost * scale_function) / (total_count as f64)
+    total_cost / (total_count as f64)
 }
 
 #[cfg(test)]

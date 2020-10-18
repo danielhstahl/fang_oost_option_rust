@@ -466,17 +466,11 @@ where
                 )
                 .zip(option_data)
                 .map(|(val, option)| ((val - 1.0) * discount * option.strike + asset, option))
-                .map(|(value, OptionData { strike, price })| {
-                    let iv = black_scholes::call_iv(*price, asset, *strike, rate, *maturity)
-                        .unwrap_or(f64::NAN);
-                    if iv.is_nan() {
-                        return MAX;
-                    }
-                    let vega = black_scholes::call_vega(asset, *strike, rate, iv, *maturity);
+                .map(|(value, OptionData { price, .. })| {
                     if value.is_nan() {
                         MAX
                     } else {
-                        ((value - price) / vega).powi(2)
+                        ((value - price) / price).abs()
                     }
                 })
                 .sum::<f64>()

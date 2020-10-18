@@ -470,7 +470,7 @@ where
                     if value.is_nan() {
                         LARGE_NUMBER
                     } else {
-                        ((value - price) / price).abs()
+                        ((value - price) / price).powi(2)
                     }
                 })
                 .sum::<f64>()

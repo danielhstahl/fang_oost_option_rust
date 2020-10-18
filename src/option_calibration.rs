@@ -376,7 +376,7 @@ fn get_x_from_option_data_iterator<'a, 'b: 'a>(
         .par_iter()
         .map(move |&OptionData { strike, .. }| crate::option_pricing::get_x_from_k(asset, strike))
 }
-
+const LARGE_NUMBER: f64 = 100000000.0; //larg number for cost function.  I don't use MAX since it can overflow into Inf
 /// Returns function which computes the mean squared error
 /// between the empirical and analytical option prices.
 ///
@@ -468,7 +468,7 @@ where
                 .map(|(val, option)| ((val - 1.0) * discount * option.strike + asset, option))
                 .map(|(value, OptionData { price, .. })| {
                     if value.is_nan() {
-                        MAX
+                        LARGE_NUMBER
                     } else {
                         ((value - price) / price).abs()
                     }

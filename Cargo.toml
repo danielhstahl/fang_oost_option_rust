@@ -1,9 +1,9 @@
 [package]
 name = "fang_oost_option"
-version = "0.30.6"
+version = "0.30.7"
 authors = ["Daniel Stahl <danstahl1138@gmail.com>"]
-homepage = "https://github.com/phillyfan1138/fang_oost_option_rust"
-repository = "https://github.com/phillyfan1138/fang_oost_option_rust"
+homepage = "https://github.com/danielhstahl/fang_oost_option_rust"
+repository = "https://github.com/danielhstahl/fang_oost_option_rust"
 readme = "README.md"
 license = "MIT"
 description = "A library implementing Fang and Oosterlee's algorithm for option pricing."
@@ -29,4 +29,4 @@ name = "option_price_bench"
 harness = false
 
 [badges]
-travis-ci = { repository = "phillyfan1138/fang_oost_option_rust" }
+travis-ci = { repository = "danielhstahl/fang_oost_option_rust" }

@@ -415,73 +415,81 @@ const LARGE_NUMBER: f64 = 100000000.0; //larg number for cost function.  I don't
 /// let max_strike = 300.0;
 /// let result = option_calibration::obj_fn_real(
 ///     num_u, asset, &option_data_mat,
-///     rate, &params, |_p, _m| max_strike, &cf
-/// );
+///     rate,  |_p, _m| max_strike, &cf
+/// )(&params);
 /// assert!(result.is_finite());
 /// assert!(result > 0.0);
 /// # }
 /// ```
-pub fn obj_fn_real<S, U>(
+pub fn obj_fn_real<'b, 'a: 'b, S, U>(
     num_u: usize,
     asset: f64,
-    option_datum: &[OptionDataMaturity],
+    option_datum: &'a [OptionDataMaturity],
     rate: f64,
-    params: &[f64],
     get_max_strike: U,
     cf_function: S,
-) -> f64
+) -> impl Fn(&[f64]) -> f64 + std::marker::Sync + std::marker::Send + 'b
 where
     S: Fn(&Complex<f64>, f64, &[f64] /*u, maturity, vector of parameters*/) -> Complex<f64>
         + std::marker::Sync
-        + std::marker::Send,
-    U: Fn(&[f64], f64) -> f64 + std::marker::Sync + std::marker::Send,
+        + std::marker::Send
+        + 'a,
+    U: Fn(&[f64], f64) -> f64 + std::marker::Sync + std::marker::Send + 'a,
 {
-    let total_cost = option_datum
-        .par_iter()
-        .map(
-            |OptionDataMaturity {
-                 maturity,
-                 option_data,
-             }| {
-                let discount: f64 = (-rate * maturity).exp();
-                let max_strike = get_max_strike(&params, *maturity);
-                let (x_min, x_max) = crate::option_pricing::get_x_range(asset, max_strike);
-                let discrete_cf = crate::option_pricing::fang_oost_discrete_cf(
-                    num_u,
-                    x_min,
-                    x_max,
-                    |cfu, _| crate::option_pricing::option_price_transform(&cfu),
-                    |u| cf_function(u, *maturity, params),
-                );
+    //https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.377.2222&rep=rep1&type=pdf
+    let w = 50.0
+        / option_datum
+            .iter()
+            .flat_map(|OptionDataMaturity { option_data, .. }| {
+                option_data
+                    .iter()
+                    .map(|OptionData { price, .. }| price.powi(2))
+            })
+            .sum::<f64>();
+    move |params: &[f64]| -> f64 {
+        let mean_square_error: f64 = option_datum
+            .par_iter()
+            .map(
+                |OptionDataMaturity {
+                     maturity,
+                     option_data,
+                 }| {
+                    let discount: f64 = (-rate * maturity).exp();
+                    let max_strike = get_max_strike(&params, *maturity);
+                    let (x_min, x_max) = crate::option_pricing::get_x_range(asset, max_strike);
+                    let discrete_cf = crate::option_pricing::fang_oost_discrete_cf(
+                        num_u,
+                        x_min,
+                        x_max,
+                        |cfu, _| crate::option_pricing::option_price_transform(&cfu),
+                        |u| cf_function(u, *maturity, params),
+                    );
 
-                fang_oost::get_expectation_extended(
-                    x_min,
-                    x_max,
-                    get_x_from_option_data_iterator(asset, option_data),
-                    &discrete_cf,
-                    move |u, _, k| {
-                        crate::option_pricing::phi_k(x_min, x_min, 0.0, u, k)
-                            - crate::option_pricing::chi_k(x_min, x_min, 0.0, u)
-                    },
-                )
-                .zip(option_data)
-                .map(|(val, option)| ((val - 1.0) * discount * option.strike + asset, option))
-                .map(|(value, OptionData { price, .. })| {
-                    if value.is_nan() {
-                        LARGE_NUMBER
-                    } else {
-                        ((value - price) / price).powi(2)
-                    }
-                })
-                .sum::<f64>()
-            },
-        )
-        .sum::<f64>();
-    let total_count = option_datum
-        .iter()
-        .map(|OptionDataMaturity { option_data, .. }| option_data.len())
-        .sum::<usize>();
-    total_cost / (total_count as f64)
+                    fang_oost::get_expectation_extended(
+                        x_min,
+                        x_max,
+                        get_x_from_option_data_iterator(asset, option_data),
+                        &discrete_cf,
+                        move |u, _, k| {
+                            crate::option_pricing::phi_k(x_min, x_min, 0.0, u, k)
+                                - crate::option_pricing::chi_k(x_min, x_min, 0.0, u)
+                        },
+                    )
+                    .zip(option_data)
+                    .map(|(val, option)| ((val - 1.0) * discount * option.strike + asset, option))
+                    .map(|(value, OptionData { price, .. })| {
+                        if value.is_nan() {
+                            LARGE_NUMBER
+                        } else {
+                            (value - price).powi(2)
+                        }
+                    })
+                    .sum::<f64>()
+                },
+            )
+            .sum::<f64>();
+        (mean_square_error * w).sqrt() //https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.377.2222&rep=rep1&type=pdf
+    }
 }
 
 #[cfg(test)]
@@ -565,10 +573,9 @@ mod tests {
             asset,
             &option_data_mat,
             rate,
-            &params,
             |_params, _maturity| max_strike,
             &cf,
-        );
+        )(&params);
         assert!(result.is_finite());
         assert!(result > 0.0);
     }
@@ -626,10 +633,9 @@ mod tests {
             asset,
             &option_data_mat,
             r,
-            &guess,
             |_params, _maturity| max_strike,
             &cal_cf,
-        );
+        )(&guess);
         assert!(result.abs() <= MIN_POSITIVE);
     }
     #[test]

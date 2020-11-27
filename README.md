@@ -2,10 +2,10 @@
 | :---------------: | :-------------------: |
 | ![lin-badge]      | ![cov-badge]          |
 
-[lin-badge]: https://github.com/phillyfan1138/fang_oost_option_rust/workflows/Rust/badge.svg
-[lin-link]:  https://github.com/phillyfan1138/fang_oost_option_rust/actions
-[cov-badge]: https://codecov.io/gh/phillyfan1138/fang_oost_option_rust/branch/master/graph/badge.svg
-[cov-link]:  https://codecov.io/gh/phillyfan1138/fang_oost_option_rust
+[lin-badge]: https://github.com/danielhstahl/fang_oost_option_rust/workflows/Rust/badge.svg
+[lin-link]:  https://github.com/danielhstahl/fang_oost_option_rust/actions
+[cov-badge]: https://codecov.io/gh/danielhstahl/fang_oost_option_rust/branch/master/graph/badge.svg
+[cov-link]:  https://codecov.io/gh/danielhstahl/fang_oost_option_rust
 
 # Fang-Oosterlee Option Pricing for Rust
 

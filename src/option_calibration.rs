@@ -476,7 +476,9 @@ where
                         },
                     )
                     .zip(option_data)
-                    .map(|(val, option)| ((val - 1.0) * discount * option.strike + asset, option))
+                    .map(|(val, option)| {
+                        ((val.value - 1.0) * discount * option.strike + asset, option)
+                    })
                     .map(|(value, OptionData { price, .. })| {
                         if value.is_nan() {
                             LARGE_NUMBER
@@ -603,11 +605,11 @@ mod tests {
             num_u, asset, &k_array, max_strike, r, t, &inst_cf,
         );
         let observed_strikes_options: Vec<OptionData> = my_option_prices
-            .iter()
-            .zip(k_array.iter())
-            .map(|(option, strike)| OptionData {
-                price: *option,
-                strike: *strike,
+            //.iter()
+            //.zip(k_array.iter())
+            .map(|fang_oost::GraphElement { x, value }| OptionData {
+                price: x,
+                strike: value,
             })
             .collect();
         let option_data_mat = vec![OptionDataMaturity {

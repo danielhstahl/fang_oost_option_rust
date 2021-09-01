@@ -14,8 +14,15 @@ jobs:
     - name: Benchmarks
       uses: danielhstahl/gnuplot-action@master
     - name: Deploy pages
-      uses: JamesIves/github-pages-deploy-action@master
-      env: 
-        ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
-        BRANCH: gh-pages
-        FOLDER: target/criterion
+      uses: JamesIves/github-pages-deploy-action@4.1.4
+      with: 
+        branch: gh-pages
+        folder: target/criterion
+    - name: Document 
+      run: cargo doc
+    - uses: hecrj/setup-rust-action@master
+      with:
+        rust-version: stable
+    - name: Publish
+      run: |
+        cargo publish --token ${{ secrets.CARGO_TOKEN }} --allow-dirty || true

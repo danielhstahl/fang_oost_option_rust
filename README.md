@@ -21,6 +21,7 @@ Import and use:
 extern crate num_complex;
 use num_complex::Complex;
 extern crate fang_oost_option;
+use rayon::prelude::*;
 use fang_oost_option::option_pricing;
 let num_u:usize = 256;
 let asset = 50.0;
@@ -42,10 +43,10 @@ let volatility:f64 = 0.3;
 let cf = |u: &Complex<f64>| {
     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
 };
-let prices = option_pricing::fang_oost_call_price(
+let prices: Vec<fang_oost::GraphElement>= option_pricing::fang_oost_call_price(
     num_u, asset, &strikes, max_strike,
     rate, t_maturity, &cf
-);
+).collect();
 ```
 
 

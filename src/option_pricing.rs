@@ -94,28 +94,6 @@ where
     fang_oost::get_discrete_cf(num_u, x_min, x_max, |u| enh_cf(&cf(u), u))
 }
 
-fn fang_oost_generic<'a, U>(
-    asset: f64,
-    strikes: &'a [f64],
-    x_min: f64,
-    x_max: f64,
-    discrete_cf: &[Complex<f64>],
-    m_output: U,
-) -> Vec<f64>
-where
-    U: Fn(f64, f64) -> f64 + std::marker::Sync + std::marker::Send + 'a,
-{
-    fang_oost::get_expectation_extended(
-        x_min,
-        x_max,
-        get_x_from_k_iterator(asset, strikes),
-        &discrete_cf,
-        move |u, _, k| phi_k(x_min, x_min, 0.0, u, k) - chi_k(x_min, x_min, 0.0, u),
-    )
-    .zip(strikes)
-    .map(|(result, strike)| m_output(result.value, *strike))
-    .collect()
-}
 fn fang_oost_generic_move<'a, U>(
     asset: f64,
     strikes: &'a [f64],
@@ -146,6 +124,7 @@ where
 /// ```
 /// extern crate num_complex;
 /// use num_complex::Complex;
+/// use rayon::prelude::*;
 /// extern crate fang_oost_option;
 /// use fang_oost_option::option_pricing;
 /// # fn main() {
@@ -160,7 +139,7 @@ where
 /// let cf = |u: &Complex<f64>| {
 ///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
 /// };
-/// let prices = option_pricing::fang_oost_call_price(
+/// let prices:Vec<fang_oost::GraphElement> = option_pricing::fang_oost_call_price(
 ///     num_u, asset, &strikes, max_strike,
 ///     rate, t_maturity, &cf
 /// ).collect();
@@ -204,6 +183,7 @@ where
 /// ```
 /// extern crate num_complex;
 /// use num_complex::Complex;
+/// use rayon::prelude::*;
 /// extern crate fang_oost_option;
 /// use fang_oost_option::option_pricing;
 /// # fn main() {
@@ -218,7 +198,7 @@ where
 /// let cf = |u: &Complex<f64>| {
 ///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
 /// };
-/// let prices = option_pricing::fang_oost_put_price(
+/// let prices: Vec<fang_oost::GraphElement> = option_pricing::fang_oost_put_price(
 ///     num_u, asset, &strikes, max_strike,
 ///     rate, t_maturity, &cf
 /// ).collect();
@@ -260,6 +240,7 @@ where
 /// ```
 /// extern crate num_complex;
 /// use num_complex::Complex;
+/// use rayon::prelude::*;
 /// extern crate fang_oost_option;
 /// use fang_oost_option::option_pricing;
 /// # fn main() {
@@ -274,7 +255,7 @@ where
 /// let cf = |u: &Complex<f64>| {
 ///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
 /// };
-/// let deltas = option_pricing::fang_oost_call_delta(
+/// let deltas: Vec<fang_oost::GraphElement> = option_pricing::fang_oost_call_delta(
 ///     num_u, asset, &strikes, max_strike,
 ///     rate, t_maturity, &cf
 /// ).collect();
@@ -316,6 +297,7 @@ where
 /// ```
 /// extern crate num_complex;
 /// use num_complex::Complex;
+/// use rayon::prelude::*;
 /// extern crate fang_oost_option;
 /// use fang_oost_option::option_pricing;
 /// # fn main() {
@@ -330,7 +312,7 @@ where
 /// let cf = |u: &Complex<f64>| {
 ///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
 /// };
-/// let deltas = option_pricing::fang_oost_put_delta(
+/// let deltas: Vec<fang_oost::GraphElement> = option_pricing::fang_oost_put_delta(
 ///     num_u, asset, &strikes, max_strike,
 ///     rate, t_maturity, &cf
 /// ).collect();
@@ -379,6 +361,7 @@ where
 /// ```
 /// extern crate num_complex;
 /// use num_complex::Complex;
+/// use rayon::prelude::*;
 /// extern crate fang_oost_option;
 /// use fang_oost_option::option_pricing;
 /// # fn main() {
@@ -393,7 +376,7 @@ where
 /// let cf = |u: &Complex<f64>| {
 ///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
 /// };
-/// let deltas = option_pricing::fang_oost_call_theta(
+/// let deltas: Vec<fang_oost::GraphElement> = option_pricing::fang_oost_call_theta(
 ///     num_u, asset, &strikes, max_strike,
 ///     rate, t_maturity, &cf
 /// ).collect();
@@ -442,6 +425,7 @@ where
 /// ```
 /// extern crate num_complex;
 /// use num_complex::Complex;
+/// use rayon::prelude::*;
 /// extern crate fang_oost_option;
 /// use fang_oost_option::option_pricing;
 /// # fn main() {
@@ -456,7 +440,7 @@ where
 /// let cf = |u: &Complex<f64>| {
 ///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
 /// };
-/// let deltas = option_pricing::fang_oost_put_theta(
+/// let deltas: Vec<fang_oost::GraphElement> = option_pricing::fang_oost_put_theta(
 ///     num_u, asset, &strikes, max_strike,
 ///     rate, t_maturity, &cf
 /// ).collect();
@@ -499,6 +483,7 @@ where
 /// ```
 /// extern crate num_complex;
 /// use num_complex::Complex;
+/// use rayon::prelude::*;
 /// extern crate fang_oost_option;
 /// use fang_oost_option::option_pricing;
 /// # fn main() {
@@ -513,7 +498,7 @@ where
 /// let cf = |u: &Complex<f64>| {
 ///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
 /// };
-/// let deltas = option_pricing::fang_oost_call_gamma(
+/// let deltas: Vec<fang_oost::GraphElement> = option_pricing::fang_oost_call_gamma(
 ///     num_u, asset, &strikes, max_strike,
 ///     rate, t_maturity, &cf
 /// ).collect();
@@ -562,6 +547,7 @@ where
 /// ```
 /// extern crate num_complex;
 /// use num_complex::Complex;
+/// use rayon::prelude::*;
 /// extern crate fang_oost_option;
 /// use fang_oost_option::option_pricing;
 /// # fn main() {
@@ -576,7 +562,7 @@ where
 /// let cf = |u: &Complex<f64>| {
 ///     ((rate-volatility*volatility*0.5)*t_maturity*u+volatility*volatility*t_maturity*u*u*0.5).exp()
 /// };
-/// let deltas = option_pricing::fang_oost_put_gamma(
+/// let deltas: Vec<fang_oost::GraphElement> = option_pricing::fang_oost_put_gamma(
 ///     num_u, asset, &strikes, max_strike,
 ///     rate, t_maturity, &cf
 /// ).collect();
@@ -665,14 +651,6 @@ mod tests {
                 epsilon = 0.001
             );
         });
-
-        /*for i in 0..k_array.len() {
-            assert_abs_diff_eq!(
-                black_scholes::call(asset, k_array[i], r, sig, t),
-                my_option_price[i].value,
-                epsilon = 0.001
-            );
-        }*/
     }
 
     #[test]
@@ -697,14 +675,6 @@ mod tests {
                 epsilon = 0.001
             );
         });
-
-        /*for i in 0..num_x {
-            assert_abs_diff_eq!(
-                black_scholes::call(asset, k_array[i], r, sig, t),
-                my_option_price[i],
-                epsilon = 0.001
-            );
-        }*/
     }
     #[test]
     fn test_fang_oost_call_price_with_merton() {
@@ -728,7 +698,7 @@ mod tests {
         let max_strike = 5000.0;
         let my_option_price =
             fang_oost_call_price(num_u, asset, &k_array, max_strike, r, t, inst_cf);
-        my_option_price.for_each(|fang_oost::GraphElement { x, value }| {
+        my_option_price.for_each(|fang_oost::GraphElement { value, .. }| {
             assert_eq!(value > 0.0 && value < asset, true);
         });
     }
@@ -754,13 +724,6 @@ mod tests {
                 epsilon = 0.001
             );
         });
-        /*for i in 0..num_x {
-            assert_abs_diff_eq!(
-                black_scholes::put(asset, k_array[i], r, sig, t),
-                my_option_price[i],
-                epsilon = 0.001
-            );
-        }*/
     }
     #[test]
     fn test_fang_oost_call_delta() {
@@ -783,13 +746,6 @@ mod tests {
                 epsilon = 0.001
             );
         });
-        /*for i in 0..num_x {
-            assert_abs_diff_eq!(
-                black_scholes::call_delta(asset, k_array[i], r, sig, t),
-                my_option_price[i],
-                epsilon = 0.001
-            );
-        }*/
     }
     #[test]
     fn test_fang_oost_put_delta() {
@@ -812,13 +768,6 @@ mod tests {
                 epsilon = 0.001
             );
         });
-        /*for i in 0..num_x {
-            assert_abs_diff_eq!(
-                black_scholes::put_delta(asset, k_array[i], r, sig, t),
-                my_option_price[i],
-                epsilon = 0.001
-            );
-        }*/
     }
     #[test]
     fn test_fang_oost_call_gamma() {
@@ -842,14 +791,6 @@ mod tests {
                 epsilon = 0.001
             );
         });
-        /*
-        for i in 0..num_x {
-            assert_abs_diff_eq!(
-                black_scholes::call_gamma(asset, k_array[i], r, sig, t),
-                my_option_price[i],
-                epsilon = 0.001
-            );
-        }*/
     }
     #[test]
     fn test_fang_oost_put_gamma() {
@@ -872,13 +813,6 @@ mod tests {
                 epsilon = 0.001
             );
         });
-        /*for i in 0..num_x {
-            assert_abs_diff_eq!(
-                black_scholes::put_gamma(asset, k_array[i], r, sig, t),
-                my_option_price[i],
-                epsilon = 0.001
-            );
-        }*/
     }
     #[test]
     fn test_fang_oost_call_theta() {
@@ -901,13 +835,6 @@ mod tests {
                 epsilon = 0.001
             );
         });
-        /*for i in 0..num_x {
-            assert_abs_diff_eq!(
-                black_scholes::call_theta(asset, k_array[i], r, sig, t),
-                my_option_price[i],
-                epsilon = 0.001
-            );
-        }*/
     }
     #[test]
     fn test_fang_oost_put_theta() {
@@ -931,13 +858,6 @@ mod tests {
                 epsilon = 0.001
             );
         });
-        /*for i in 0..num_x {
-            assert_abs_diff_eq!(
-                black_scholes::put_theta(asset, k_array[i], r, sig, t),
-                my_option_price[i],
-                epsilon = 0.001
-            );
-        }*/
     }
 
     #[test]
@@ -962,7 +882,7 @@ mod tests {
         let num_u = 256 as usize;
         let options_price: Vec<f64> =
             fang_oost_call_price(num_u, s0, &k_array, max_strike, r, t, cgmy_cf)
-                .map(|fang_oost::GraphElement { x, value }| x)
+                .map(|fang_oost::GraphElement { value, .. }| value)
                 .collect();
         let reference_price = 16.212478; //https://cs.uwaterloo.ca/~paforsyt/levy.pdf pg 19
         assert_abs_diff_eq!(options_price[0], reference_price, epsilon = 0.001);
@@ -990,7 +910,7 @@ mod tests {
         let num_u = 64 as usize;
         let options_price: Vec<f64> =
             fang_oost_call_price(num_u, s0, &k_array, max_strike, r, t, cgmy_cf)
-                .map(|fang_oost::GraphElement { x, value }| x)
+                .map(|fang_oost::GraphElement { value, .. }| value)
                 .collect();
         let reference_price = 19.812948843;
         assert_abs_diff_eq!(options_price[0], reference_price, epsilon = 0.00001);
@@ -1028,7 +948,7 @@ mod tests {
         let num_u = 256 as usize;
         let options_price: Vec<f64> =
             fang_oost_call_price(num_u, s0, &k_array, max_strike, r, t, heston_cf)
-                .map(|fang_oost::GraphElement { x, value }| x)
+                .map(|fang_oost::GraphElement { value, .. }| value)
                 .collect();
         let reference_price = 5.78515545;
         assert_abs_diff_eq!(options_price[0], reference_price, epsilon = 0.00001);

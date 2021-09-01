@@ -608,8 +608,8 @@ mod tests {
             //.iter()
             //.zip(k_array.iter())
             .map(|fang_oost::GraphElement { x, value }| OptionData {
-                price: x,
-                strike: value,
+                price: value,
+                strike: x,
             })
             .collect();
         let option_data_mat = vec![OptionDataMaturity {

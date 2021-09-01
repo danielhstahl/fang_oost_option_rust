@@ -35,11 +35,3 @@ jobs:
         zip -0 ccov.zip `find . \( -name "${CRATE_NAME}*.gc*" \) -print`
         ./grcov ccov.zip -s . -t lcov --llvm --branch --ignore-not-existing --ignore "/*" -o lcov.info
         bash <(curl -s https://codecov.io/bash) -f lcov.info -t ${{ secrets.CODECOV_TOKEN }}
-
-    - name: Document 
-      run: cargo doc
-    - name: Publish
-      if: matrix.rust == 'stable'
-      run: |
-        cargo bench
-        cargo publish --token ${{ secrets.CARGO_TOKEN }} --allow-dirty || true

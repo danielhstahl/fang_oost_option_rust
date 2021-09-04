@@ -941,7 +941,9 @@ mod tests {
                 -cf_functions::merton::merton_log_risk_neutral_cf(u, 0.0, 1.0, 1.0, 0.0, sig);
             let cmp_drift = kappa - eta_v * rho * u * sig;
             (r * t * u
-                + cf_functions::cir::cir_log_mgf_cmp(&cmp_mu, speed, &cmp_drift, eta_v, t, v0_hat))
+                + cf_functions::affine_process::cir_log_mgf_cmp(
+                    &cmp_mu, speed, &cmp_drift, eta_v, t, v0_hat,
+                ))
             .exp()
         };
 

@@ -352,7 +352,7 @@ pub fn obj_fn_cmpl<'a>(
     u_array: &[f64],
     params: &[f64],
     maturity: f64,
-    cf_fn: &dyn Fn(&Complex<f64>, f64, &[f64]) -> Complex<f64>,
+    cf_fn: &impl Fn(&Complex<f64>, f64, &[f64]) -> Complex<f64>,
 ) -> f64 {
     u_array
         .iter()
